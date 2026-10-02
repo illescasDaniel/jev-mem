@@ -6,7 +6,7 @@ decision (typing, relations, routing, scoring, stopping) as batched typed
 probabilities; the host agent (Claude) is System Two and does all writing/synthesis.
 jevmem itself never calls a generative LLM.
 
-> Status: **work in progress.** Core library, MCP server/CLI, skill and hooks are in;
+> Status: **work in progress.** Core library, MCP server/CLI, skill, hooks and Python helpers are in;
 > consolidation and the eval harness are not built yet. See `/home/daniel/.claude/plans/` for the full plan.
 
 ## Installation
@@ -71,6 +71,23 @@ This repo ships both for itself:
     (disable with `JEVMEM_AUTOCAPTURE=0`).
 - Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`.
 
+## Using it from your own Python agents
+```python
+from jevmem import Judge, Service
+from jevmem.decider import JevDecider
+
+svc = Service()                       # memory: svc.writer.write(...), svc.retriever.recall(...)
+judge = Judge(svc.decider)            # cheap typed decisions, one batched Jev call each
+r = judge.route(task, {"coder": "writes code", "researcher": "looks things up"})
+if not r.confident: ...               # includes an "unclear" escape option -> hand to an LLM
+keep = judge.filter_relevant(goal, tool_output_lines)   # prune before spending LLM tokens
+ok, p = judge.screen(untrusted_text)  # injection screen before text enters context or memory
+if judge.should_stop(goal, evidence).stop: ...
+scores = judge.check(output, {"cites": "cites a source"})  # guardrail; thresholds stay in your code
+```
+Runnable demo (route / screen / filter / shared memory / stop): `uv run python examples/multi_agent.py`.
+Agents share memory through scopes: a shared `project:<name>` plus private `agent:<name>`.
+
 ## Layout
 ```
 src/jevmem/
@@ -79,6 +96,7 @@ src/jevmem/
   store.py      SQLite nodes/edges + FTS5 + embeddings
   write.py      screen -> type -> candidates -> relations
   retrieve.py   route -> anchors -> budgeted expansion -> stop
+  decide.py     Judge: route/filter/stop/check/screen for agent apps
   service.py    shared wiring (db path, env)
   mcp_server.py MCP tools
   cli.py        jevmem command
