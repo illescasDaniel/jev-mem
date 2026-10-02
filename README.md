@@ -6,8 +6,8 @@ decision (typing, relations, routing, scoring, stopping) as batched typed
 probabilities; the host agent (Claude) is System Two and does all writing/synthesis.
 jevmem itself never calls a generative LLM.
 
-> Status: **work in progress.** Core library and MCP server/CLI are in; skill, hooks and
-> consolidation are not built yet. See `/home/daniel/.claude/plans/` for the full plan.
+> Status: **work in progress.** Core library, MCP server/CLI, skill and hooks are in;
+> consolidation and the eval harness are not built yet. See `/home/daniel/.claude/plans/` for the full plan.
 
 ## Installation
 
@@ -51,7 +51,8 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 |---|---|---|
 | `TYPESAFE_API_KEY` | Jev key (via `JEVMEM_ENV_FILE`, `~/.jevmem/.env` or `.env`) | required |
 | `JEVMEM_DB` | SQLite file | `~/.jevmem/memory.db` |
-| `JEVMEM_SCOPE` | default scope for write/recall | `global` |
+| `JEVMEM_SCOPE` | default scope for write/recall | `global` (hooks: `project:<folder name>`) |
+| `JEVMEM_AUTOCAPTURE` | auto-store strongly stated preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
 
 Tools: `memory_write`, `memory_recall`, `memory_list`, `memory_forget`, `memory_stats`,
 `memory_flush_pending`. CLI: `uv run jevmem {write,recall,list,stats,flush,import-claude-memory}`.
@@ -59,9 +60,16 @@ Tools: `memory_write`, `memory_recall`, `memory_list`, `memory_forget`, `memory_
 Write memories as one literal fact with explicit entities and **absolute dates**
 ("on 2024-05-15", not "yesterday"): Jev reads literally and does not do date arithmetic.
 
-### 5. Skill and hooks *(not built yet)*
-Planned: `jev-memory` skill, SessionStart / UserPromptSubmit / Stop hooks, importer for
-existing Claude memory files.
+### 5. Skill and hooks
+This repo ships both for itself:
+- `.claude/skills/jev-memory/SKILL.md`: when/how to write and recall, phrasing rules, safety.
+  Copy the folder to `~/.claude/skills/` to use it in every project.
+- `.claude/settings.json` hooks (fail open: any error injects nothing):
+  - `SessionStart`: injects the strongest stored conventions/gotchas/decisions/preferences (no Jev call).
+  - `UserPromptSubmit`: one Jev call decides whether the prompt needs memory; only then does recall run
+    and inject notes. A strongly stated preference/decision/convention in the prompt is auto-stored
+    (disable with `JEVMEM_AUTOCAPTURE=0`).
+- Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`.
 
 ## Layout
 ```
@@ -74,4 +82,5 @@ src/jevmem/
   service.py    shared wiring (db path, env)
   mcp_server.py MCP tools
   cli.py        jevmem command
+  hooks.py      SessionStart / UserPromptSubmit logic
 ```

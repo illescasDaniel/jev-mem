@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "JEVMEM_ENV_FILE=.env uv run --directory \"$CLAUDE_PROJECT_DIR\" jevmem hook session-start",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "JEVMEM_ENV_FILE=.env uv run --directory \"$CLAUDE_PROJECT_DIR\" jevmem hook user-prompt",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

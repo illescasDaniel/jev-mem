@@ -16,8 +16,11 @@ def import_claude_memory(svc: Service, root: Path) -> int:
             continue
         text = f.read_text()
         body = re.sub(r"^---\n.*?\n---\n", "", text, flags=re.S).strip()
-        proj = f.parent.parent.name
-        r = svc.writer.write(body, scope=f"project:{proj}", source=str(f))
+        proj = f.parent.parent.name  # encoded path like -home-me-code-my-app (lossy)
+        base = Path.cwd().name
+        # match hooks' scope (basename of cwd) when importing the current project's memory
+        scope = f"project:{base}" if proj.endswith("-" + base) else f"project:{proj}"
+        r = svc.writer.write(body, scope=scope, source=str(f))
         n += 0 if r.rejected else 1
         print(f"{'skip' if r.rejected else 'ok  '} {f} {r.reason or ''}")
     return n
@@ -31,8 +34,12 @@ def main(argv: list[str] | None = None) -> None:
     r = sub.add_parser("recall"); r.add_argument("query"); r.add_argument("--scope"); r.add_argument("-k", type=int, default=8)
     l = sub.add_parser("list"); l.add_argument("--scope")
     sub.add_parser("stats"); sub.add_parser("flush")
+    h = sub.add_parser("hook"); h.add_argument("event", choices=["session-start", "user-prompt"])
     i = sub.add_parser("import-claude-memory"); i.add_argument("--root", default=str(Path.home() / ".claude" / "projects"))
     a = ap.parse_args(argv)
+    if a.cmd == "hook":
+        from .hooks import run
+        return run(a.event)
     svc = Service()
     if a.cmd == "write":
         res = svc.writer.write(a.content, a.scope, a.entity, a.timestamp)
