@@ -34,9 +34,13 @@ def main(argv: list[str] | None = None) -> None:
     r = sub.add_parser("recall"); r.add_argument("query"); r.add_argument("--scope"); r.add_argument("-k", type=int, default=8)
     l = sub.add_parser("list"); l.add_argument("--scope")
     sub.add_parser("stats"); sub.add_parser("flush"); sub.add_parser("consolidate"); sub.add_parser("pending")
+    e = sub.add_parser("eval"); e.add_argument("--data", default="evals/orbit.json"); e.add_argument("-k", type=int, default=5); e.add_argument("--json")
     h = sub.add_parser("hook"); h.add_argument("event", choices=["session-start", "user-prompt"])
     i = sub.add_parser("import-claude-memory"); i.add_argument("--root", default=str(Path.home() / ".claude" / "projects"))
     a = ap.parse_args(argv)
+    if a.cmd == "eval":
+        from .evalharness import run
+        return run(a.data, a.k, a.json)
     if a.cmd == "hook":
         from .hooks import run
         return run(a.event)

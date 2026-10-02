@@ -92,7 +92,8 @@ def stop_questions() -> dict[str, Question]:
         "missing_evidence": NoulQ("Is there a fact required to answer `query` that `evidence` does not contain? "
                                   "true: an identifiable required fact is absent. false: nothing required is absent."),
         "contradiction": NoulQ("Do any two items in `evidence` contradict each other on a fact relevant to "
-                               "`query`? true: conflicting accounts. false: consistent or unrelated."),
+                               "`query`? Ignore items whose `status` is superseded. true: conflicting accounts. "
+                               "false: consistent, unrelated, or the only conflict involves a superseded item."),
     }
 
 

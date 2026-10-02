@@ -1,0 +1,431 @@
+{
+ "name": "orbit-coding-memory",
+ "scope": "project:orbit",
+ "notes": [
+  {
+   "key": "n1",
+   "timestamp": "2026-01-10",
+   "content": "Orbit's API is built with FastAPI and runs on Python 3.12.",
+   "entities": [
+    "Orbit",
+    "FastAPI"
+   ]
+  },
+  {
+   "key": "n2",
+   "timestamp": "2026-01-12",
+   "content": "Orbit stores data in Postgres 15, accessed through SQLAlchemy 2.",
+   "entities": [
+    "Orbit",
+    "Postgres",
+    "SQLAlchemy"
+   ]
+  },
+  {
+   "key": "n12",
+   "timestamp": "2026-02-10",
+   "content": "Orbit's background jobs run on Celery with a Redis broker.",
+   "entities": [
+    "Orbit",
+    "Celery",
+    "Redis"
+   ]
+  },
+  {
+   "key": "n3",
+   "timestamp": "2026-02-03",
+   "content": "Decision on 2026-02-03: use Alembic for Orbit database migrations because it integrates with SQLAlchemy.",
+   "entities": [
+    "Orbit",
+    "Alembic",
+    "SQLAlchemy"
+   ]
+  },
+  {
+   "key": "n4",
+   "timestamp": "2026-02-20",
+   "content": "Bug on 2026-02-20: Orbit's /orders endpoint returned duplicate rows because the join on order_items was missing DISTINCT; fixed by adding a unique constraint on (order_id, sku).",
+   "entities": [
+    "Orbit",
+    "/orders"
+   ]
+  },
+  {
+   "key": "n22",
+   "timestamp": "2026-02-25",
+   "content": "Orbit's primary branch is master.",
+   "entities": [
+    "Orbit"
+   ]
+  },
+  {
+   "key": "n5",
+   "timestamp": "2026-03-01",
+   "content": "Convention: Orbit code is formatted with ruff format and linted with ruff check; line length is 100.",
+   "entities": [
+    "Orbit",
+    "ruff"
+   ]
+  },
+  {
+   "key": "n6",
+   "timestamp": "2026-03-05",
+   "content": "Orbit tests run with uv run pytest; integration tests must use a real Postgres container, not mocks.",
+   "entities": [
+    "Orbit",
+    "Postgres",
+    "pytest"
+   ]
+  },
+  {
+   "key": "n7",
+   "timestamp": "2026-03-18",
+   "content": "On 2026-03-18 the Orbit integration test suite passed while production migrations were failing, because mocked database tests hid the broken migration; this is why Orbit integration tests must hit a real Postgres.",
+   "entities": [
+    "Orbit",
+    "Postgres"
+   ]
+  },
+  {
+   "key": "n8",
+   "timestamp": "2026-04-02",
+   "content": "Orbit's CI runs on GitHub Actions and takes about 8 minutes.",
+   "entities": [
+    "Orbit",
+    "GitHub Actions"
+   ]
+  },
+  {
+   "key": "n9",
+   "timestamp": "2026-04-15",
+   "content": "Gotcha: Orbit's Redis cache keys must include the tenant id, otherwise tenants see each other's data.",
+   "entities": [
+    "Orbit",
+    "Redis"
+   ]
+  },
+  {
+   "key": "n10",
+   "timestamp": "2026-05-01",
+   "content": "Orbit deploys to Fly.io using the script ops/deploy.sh and requires FLY_API_TOKEN to be set.",
+   "entities": [
+    "Orbit",
+    "Fly.io"
+   ]
+  },
+  {
+   "key": "n11",
+   "timestamp": "2026-05-20",
+   "content": "On 2026-05-20 the team decided to move Orbit from Celery to Arq for background jobs because Celery's memory usage was too high.",
+   "entities": [
+    "Orbit",
+    "Celery",
+    "Arq"
+   ]
+  },
+  {
+   "key": "n13",
+   "timestamp": "2026-06-10",
+   "content": "Alice prefers small pull requests under 300 lines for Orbit.",
+   "entities": [
+    "Alice",
+    "Orbit"
+   ]
+  },
+  {
+   "key": "n14",
+   "timestamp": "2026-06-25",
+   "content": "Bob owns the Orbit billing module and must review every change under billing/.",
+   "entities": [
+    "Bob",
+    "Orbit"
+   ]
+  },
+  {
+   "key": "n15",
+   "timestamp": "2026-07-08",
+   "content": "The Orbit billing module integrates with Stripe; webhooks are verified using the STRIPE_WEBHOOK_SECRET environment variable.",
+   "entities": [
+    "Orbit",
+    "Stripe"
+   ]
+  },
+  {
+   "key": "n16",
+   "timestamp": "2026-07-20",
+   "content": "Gotcha: Stripe webhook retries can deliver the same event twice, so Orbit billing handlers must be idempotent by event id.",
+   "entities": [
+    "Orbit",
+    "Stripe"
+   ]
+  },
+  {
+   "key": "n17",
+   "timestamp": "2026-08-03",
+   "content": "Orbit's rate limit is 100 requests per minute per API key, enforced in the gateway.",
+   "entities": [
+    "Orbit"
+   ]
+  },
+  {
+   "key": "n18",
+   "timestamp": "2026-08-18",
+   "content": "On 2026-08-18 the rate limit for Orbit was raised from 100 to 300 requests per minute per API key after customer complaints.",
+   "entities": [
+    "Orbit"
+   ]
+  },
+  {
+   "key": "n19",
+   "timestamp": "2026-09-01",
+   "content": "Orbit logs are JSON formatted and shipped to Grafana Loki.",
+   "entities": [
+    "Orbit",
+    "Loki"
+   ]
+  },
+  {
+   "key": "n20",
+   "timestamp": "2026-09-12",
+   "content": "Orbit's staging database is reset every Sunday at 03:00 UTC.",
+   "entities": [
+    "Orbit"
+   ]
+  },
+  {
+   "key": "n21",
+   "timestamp": "2026-09-20",
+   "content": "Decision on 2026-09-20: Orbit adopts OpenTelemetry for tracing because it is vendor neutral.",
+   "entities": [
+    "Orbit",
+    "OpenTelemetry"
+   ]
+  },
+  {
+   "key": "n23",
+   "timestamp": "2026-09-28",
+   "content": "Orbit's primary branch was renamed from master to main on 2026-09-28.",
+   "entities": [
+    "Orbit"
+   ]
+  },
+  {
+   "key": "n24",
+   "timestamp": "2026-05-05",
+   "content": "The team lunch happens on Thursdays at the office.",
+   "entities": []
+  },
+  {
+   "key": "n25",
+   "timestamp": "2026-01-05",
+   "content": "Alice is the tech lead of Orbit.",
+   "entities": [
+    "Alice",
+    "Orbit"
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "q": "What framework is the Orbit API built with?",
+   "gold": [
+    "n1"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Which database does Orbit use and through which ORM?",
+   "gold": [
+    "n2"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why did we choose Alembic for migrations?",
+   "gold": [
+    "n3"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why did the /orders endpoint return duplicate rows and how was it fixed?",
+   "gold": [
+    "n4"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What formatter and linter does Orbit use?",
+   "gold": [
+    "n5"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How do we run the tests?",
+   "gold": [
+    "n6"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why must integration tests use a real database instead of mocks?",
+   "gold": [
+    "n6",
+    "n7"
+   ],
+   "kind": "multi-hop"
+  },
+  {
+   "q": "How long does CI take?",
+   "gold": [
+    "n8"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why must Redis cache keys include the tenant id?",
+   "gold": [
+    "n9"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How do I deploy Orbit and what must be set?",
+   "gold": [
+    "n10"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What do we use for background jobs?",
+   "gold": [
+    "n11"
+   ],
+   "kind": "superseded"
+  },
+  {
+   "q": "Why did we move away from Celery?",
+   "gold": [
+    "n11"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What is the maximum pull request size Alice likes?",
+   "gold": [
+    "n13"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Who must review billing changes?",
+   "gold": [
+    "n14"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How are Stripe webhooks verified?",
+   "gold": [
+    "n15"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why must webhook handlers be idempotent?",
+   "gold": [
+    "n16"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What is the current API rate limit?",
+   "gold": [
+    "n18"
+   ],
+   "kind": "superseded"
+  },
+  {
+   "q": "What was the rate limit before it was raised?",
+   "gold": [
+    "n17",
+    "n18"
+   ],
+   "kind": "temporal"
+  },
+  {
+   "q": "Where do logs go and in what format?",
+   "gold": [
+    "n19"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "When is the staging database reset?",
+   "gold": [
+    "n20"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why did we adopt OpenTelemetry?",
+   "gold": [
+    "n21"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What is the primary branch called?",
+   "gold": [
+    "n23"
+   ],
+   "kind": "superseded"
+  },
+  {
+   "q": "What happens when a Stripe webhook is delivered twice, and who must review that code?",
+   "gold": [
+    "n16",
+    "n14"
+   ],
+   "kind": "multi-hop"
+  },
+  {
+   "q": "Who is the tech lead?",
+   "gold": [
+    "n25"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Which cloud provider hosts the Postgres database?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "What is the on-call rotation for Orbit?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "Which frontend framework does Orbit use?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "What is Bob's phone number?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "How many engineers work on Orbit?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "What is the size of the Kubernetes cluster?",
+   "gold": [],
+   "kind": "unanswerable"
+  }
+ ]
+}

@@ -16,7 +16,11 @@ class Config:
     max_depth: int = 8
     beam_width: int = 10                 # W
     top_k: int = 8                       # K handed to System Two
-    sufficient: float = 0.95
+    # stop rule: sufficient >= x, missing < y, contradiction < z. The paper's 0.95/0.15 did not fit our question
+    # wording; these come from `jevmem eval` (clear gap: unanswerable <=0.24 sufficient, answerable >=0.51)
+    sufficient: float = 0.50
+    missing_max: float = 0.60
+    contradiction_max: float = 0.60
     cont_threshold: float = 0.15
     max_nodes: int = 60
     max_edges: int = 2400

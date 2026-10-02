@@ -37,6 +37,7 @@ class RecallResult:
     degraded: bool = False
     stop_reason: str = ""
     routing: dict[str, float] = field(default_factory=dict)
+    assess: dict[str, float] = field(default_factory=dict)   # last stop-check values (for threshold tuning)
 
 
 def largest_remainder(total: float, weights: dict[str, float]) -> dict[str, int]:
@@ -125,7 +126,8 @@ class Retriever:
                     stop_questions()); calls += 1
                 s, u, m, c = (a[x].p for x in ("evidence_sufficient", "continue_useful",
                                                "missing_evidence", "contradiction"))
-                res.sufficient = s >= cfg.sufficient and m < cfg.cont_threshold and c < cfg.cont_threshold
+                res.assess = {"sufficient": s, "continue_useful": u, "missing": m, "contradiction": c}
+                res.sufficient = s >= cfg.sufficient and m < cfg.missing_max and c < cfg.contradiction_max
                 res.missing, res.depth = m, depth
                 if res.sufficient:
                     return finish("sufficient")
@@ -177,10 +179,14 @@ class Retriever:
 
     def _ev_state(self, score, via, k):
         top = sorted(score, key=lambda i: -score[i])[:k]
+        old = self.store.flagged("superseded_by", "merged_into")
         out = []
         for i in top:
             n = self.store.get(i)
-            out.append({"content": n.content, "timestamp": iso(n.timestamp)})
+            item = {"content": n.content, "timestamp": iso(n.timestamp)}
+            if i in old:
+                item["status"] = "superseded"   # consolidation already resolved this conflict
+            out.append(item)
         return out
 
     def _ev(self, i, sc, via) -> Evidence:

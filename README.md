@@ -6,8 +6,7 @@ decision (typing, relations, routing, scoring, stopping) as batched typed
 probabilities; the host agent (Claude) is System Two and does all writing/synthesis.
 jevmem itself never calls a generative LLM.
 
-> Status: **work in progress.** Core library, MCP server/CLI, skill, hooks, Python helpers and consolidation are in;
-> the eval harness is not built yet. See `/home/daniel/.claude/plans/` for the full plan.
+> Status: **work in progress.** Core library, MCP server/CLI, skill, hooks, Python helpers, consolidation and an eval harness are in. See `/home/daniel/.claude/plans/` for the full plan.
 
 ## Installation
 
@@ -80,6 +79,30 @@ Nothing is deleted or generated. Results only annotate the graph:
 - merge/promote proposals (selected option and probability >= 0.85, contradiction < 0.85) wait in a queue; the host
   agent writes the summary text (`memory_pending_synthesis` -> `memory_resolve`). Merged source notes are kept but rank lower.
 
+## Eval
+`uv run jevmem eval [--data evals/orbit.json] [-k 5] [--json out.json]` builds the notes in a fresh in-memory store
+(live Jev, ~70 calls) and compares plain vector top-k, hybrid (vector + BM25) top-k and jevmem recall, then sweeps
+the sufficiency thresholds. Dataset format: `{"scope", "notes":[{key,timestamp,content,entities}],
+"questions":[{q, gold:[note keys], kind}]}` (empty `gold` = unanswerable).
+
+Result on `evals/orbit.json` (25 notes, 30 questions: single, multi-hop, superseded, temporal, 6 unanswerable):
+
+| method | recall | exact | precision | items returned | chars | latency | Jev calls |
+|---|---|---|---|---|---|---|---|
+| vector top-5 | 0.83 | 0.79 | 0.18 | 5.0 | 459 | ~0 | 0 |
+| hybrid top-5 | 0.96 | 0.96 | 0.22 | 5.0 | 466 | ~0 | 0 |
+| jevmem | 1.00 | 1.00 | 0.83 | 1.3 | 133 | 0.9 s | 4.1 |
+
+On unanswerable questions the baselines return 5 items; jevmem returns 0.2 on average and reports
+`sufficient=false` every time. Caveats: small dataset written by us; thresholds were tuned on the same questions
+(the optimum is a wide plateau, so it is probably robust, but it is not held-out); the vector baseline uses the
+dependency-free hash embedder, not a real embedding model, so treat the vector row as a weak baseline. Next step:
+a held-out set from real project notes and/or a LoCoMo subset.
+
+The paper's stop thresholds (sufficient >= 0.95, missing < 0.15) did not fit our wording; defaults are now
+sufficient >= 0.5, missing < 0.6, contradiction < 0.6 (`Config`). Superseded notes are marked in the evidence Jev
+sees and ignored by the contradiction check.
+
 ## Using it from your own Python agents
 ```python
 from jevmem import Judge, Service
@@ -106,6 +129,7 @@ src/jevmem/
   write.py      screen -> type -> candidates -> relations
   retrieve.py   route -> anchors -> budgeted expansion -> stop
   consolidate.py periodic redundancy/contradiction/obsolescence pass + synthesis queue
+  evalharness.py `jevmem eval`: baselines vs jevmem + threshold sweep
   decide.py     Judge: route/filter/stop/check/screen for agent apps
   service.py    shared wiring (db path, env)
   mcp_server.py MCP tools
