@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import json
 import re
 import sqlite3
@@ -37,6 +38,26 @@ class HashEmbedder:
         return out / np.where(n == 0, 1, n)
 
 
+class FastEmbedEmbedder:
+    """Local ONNX embeddings via fastembed (`uv sync --extra embed`). Downloads the model on first use."""
+
+    def __init__(self, model: str = "BAAI/bge-small-en-v1.5"):
+        from fastembed import TextEmbedding
+        self.model = TextEmbedding(model_name=model)
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        v = np.array(list(self.model.embed(texts)), dtype=np.float32)
+        return v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
+
+
+def make_embedder(spec: str | None = None) -> Embedder:
+    """`hash` (default) or `fastembed[:model]`; read from JEVMEM_EMBEDDER when spec is None."""
+    spec = spec or os.environ.get("JEVMEM_EMBEDDER", "hash")
+    if spec.startswith("fastembed"):
+        return FastEmbedEmbedder(*spec.split(":", 1)[1:])
+    return HashEmbedder()
+
+
 @dataclass
 class Node:
     id: int
@@ -65,7 +86,7 @@ class Store:
     def __init__(self, path: str = ":memory:", embedder: Embedder | None = None):
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
-        self.embedder = embedder or HashEmbedder()
+        self.embedder = embedder or make_embedder()
         self.db.executescript("""
         CREATE TABLE IF NOT EXISTS nodes(
           id INTEGER PRIMARY KEY, content TEXT NOT NULL, scope TEXT NOT NULL, ts REAL,
@@ -94,6 +115,16 @@ class Store:
         self.db.execute("INSERT INTO fts(rowid, content) VALUES(?,?)", (nid, content))
         self.db.commit()
         return nid
+
+    def reembed(self) -> int:
+        """Recompute every stored embedding with the current embedder (needed after switching embedders)."""
+        rows = self.db.execute("SELECT id, content FROM nodes").fetchall()
+        for i in range(0, len(rows), 64):
+            chunk = rows[i:i + 64]
+            embs = self.embedder.embed([r["content"] for r in chunk]).astype(np.float32)
+            self.db.executemany("UPDATE nodes SET emb=? WHERE id=?", [(e.tobytes(), r["id"]) for e, r in zip(embs, chunk)])
+        self.db.commit()
+        return len(rows)
 
     def set_type_scores(self, nid: int, scores: dict[str, float]) -> None:
         self.db.execute("UPDATE nodes SET type_scores=? WHERE id=?", (json.dumps(scores), nid))

@@ -115,9 +115,36 @@ aimed at the agent itself, after which it was 0/15 false positives and 0/10 fals
 tuned on this same small set, so treat it as a regression test, not a measured rate.
 
 Caveats: small datasets written by us (the held-out notes were written after the system, by the same author);
-single run each (Jev is not perfectly deterministic); the vector baseline uses the dependency-free hash embedder, not
-a real embedding model, so it is a weak baseline; precision is low for baselines by construction (fixed k). Next:
-a real embedding baseline and a LoCoMo subset (both need model/data downloads).
+single run each (Jev is not perfectly deterministic); precision is low for baselines by construction (fixed k).
+
+### Real embeddings and LoCoMo
+`uv sync --extra embed` adds fastembed (`BAAI/bge-small-en-v1.5`, downloaded on first use); select it with
+`JEVMEM_EMBEDDER=fastembed` (or `jevmem eval --embedder fastembed`). After switching embedders on an existing
+database call `Store.reembed()`. With real embeddings the baselines get much stronger, so the honest numbers are:
+
+| recall (items returned) | harbor (held-out) | LoCoMo conv-26, sessions 1-4 |
+|---|---|---|
+| vector top-5 (bge-small) | 0.86 (5.0) | 0.67 (5.0) |
+| hybrid top-5 | 0.93 (5.0) | 0.57 (5.0) |
+| vector top-20 + one Jev relevance filter call | 0.99 (2.6) | 0.76 (3.5) |
+| jevmem, graph expansion off | 0.99 (1.4) | 0.79 (2.1) |
+| jevmem | 0.99 (1.4) | 0.83 (2.5) |
+
+The LoCoMo subset is 76 turns (one note per turn, stamped with the session date) and 45 questions: 35 answerable
+(19 single-hop, 9 temporal, 5 multi-hop, 2 inference) plus 10 adversarial questions whose evidence is in later,
+unloaded sessions (so they are unanswerable here; jevmem abstained on 10/10). Regenerate it with
+`curl -L -o evals/data/locomo10.json https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json`
+then `python evals/make_locomo.py 0 4 > evals/locomo_c0.json`. The data is CC BY-NC 4.0, so it is gitignored
+rather than committed. This is a small slice, not a reproduction of the paper's LoCoMo numbers.
+
+What this says: a single Jev call that filters a vector DB's top-20 already delivers most of the benefit (it
+roughly halves the context at higher recall for ~$0.0001 and ~0.25 s). The routing, graph expansion and stop rule
+cost ~1 s and 4-5 Jev calls and add the multi-hop recall (0.20 -> 0.70 on LoCoMo), cleaner abstention and the
+smallest context. Whether that is worth it depends on how multi-hop your questions are.
+
+Scale: vector and lexical search are brute force over SQLite (~6 ms per 1k notes: 65 ms at 10k, 180 ms at 30k).
+That is fine up to a few tens of thousands of notes per scope; beyond that the vector step should move to an ANN
+index (sqlite-vec, Qdrant, Chroma). Only `Store.vector_search` touches vectors, so that is the seam.
 
 The paper's stop thresholds (sufficient >= 0.95, missing < 0.15) did not fit our wording; defaults are now
 sufficient >= 0.5, missing < 0.6, contradiction < 0.6 (`Config`). Superseded notes are marked in the evidence Jev

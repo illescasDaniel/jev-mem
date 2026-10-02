@@ -18,6 +18,11 @@ dependencies = [
 jevmem = "jevmem.cli:main"
 jevmem-mcp = "jevmem.mcp_server:main"
 
+[project.optional-dependencies]
+embed = [
+    "fastembed>=0.8.1",
+]
+
 [build-system]
 requires = ["uv_build>=0.12.20,<0.13.0"]
 build-backend = "uv_build"
