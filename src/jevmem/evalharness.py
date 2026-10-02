@@ -5,7 +5,7 @@ from __future__ import annotations
 import itertools
 import json
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from statistics import mean
 
 from .config import Config
@@ -27,6 +27,7 @@ class Row:
     calls: int = 0
     assess: dict = field(default_factory=dict)
     sufficient: bool | None = None
+    tokens: int = 0
 
     @property
     def recall(self) -> float:
@@ -51,40 +52,47 @@ def build(svc: Service, data: dict) -> dict[str, int]:
 def evaluate(svc: Service, data: dict, ids: dict[str, int], k: int = 5) -> dict[str, list[Row]]:
     scopes = [data["scope"], "global"]
     ret: Retriever = svc.retriever
-    out: dict[str, list[Row]] = {"vector": [], "hybrid": [], "jevmem": []}
+    out: dict[str, list[Row]] = {"vector": [], "hybrid": [], "hybrid@3": [], "jevmem-flat": [], "jevmem": []}
+    flat = Retriever(svc.store, svc.decider, replace(svc.cfg, max_depth=0))
     text = lambda i: svc.store.get(i).content
     for item in data["questions"]:
         q, gold = item["q"], {ids[g] for g in item["gold"] if g in ids}
-        for name in ("vector", "hybrid"):
+        for name, kk in (("vector", k), ("hybrid", k), ("hybrid@3", 3)):
             t = time.time()
-            got = ([i for i, _ in svc.store.vector_search(q, scopes, k)] if name == "vector"
-                   else [i for i, _ in ret._anchors(q, scopes, set())[:k]])
+            got = ([i for i, _ in svc.store.vector_search(q, scopes, kk)] if name == "vector"
+                   else [i for i, _ in ret._anchors(q, scopes, set())[:kk]])
             out[name].append(Row(q, item["kind"], gold, got, sum(len(text(i)) for i in got), time.time() - t))
-        t, c0 = time.time(), svc.decider.calls
-        r = ret.recall(q, [data["scope"]], k)
-        got = [e.id for e in r.evidence]
-        out["jevmem"].append(Row(q, item["kind"], gold, got, sum(len(e.content) for e in r.evidence),
-                                 time.time() - t, svc.decider.calls - c0, r.assess, r.sufficient))
+        for name, rt in (("jevmem-flat", flat), ("jevmem", ret)):
+            t, c0, i0 = time.time(), svc.decider.calls, getattr(svc.decider, 'input_tokens', 0)
+            r = rt.recall(q, [data["scope"]], k)
+            got = [e.id for e in r.evidence]
+            out[name].append(Row(q, item["kind"], gold, got, sum(len(e.content) for e in r.evidence),
+                                 time.time() - t, svc.decider.calls - c0, r.assess, r.sufficient,
+                                 getattr(svc.decider, 'input_tokens', 0) - i0))
     return out
 
 
 def summarize(rows: dict[str, list[Row]]) -> str:
-    lines = [f"{'method':8} {'recall':>7} {'exact':>6} {'prec':>6} {'items':>6} {'chars':>6} {'latency':>8} {'calls':>6}"]
+    lines = [f"{'method':8} {'recall':>7} {'exact':>6} {'prec':>6} {'items':>6} {'chars':>6} {'latency':>8} {'calls':>6} {'jevtok':>7}"]
     for name, rs in rows.items():
         a = [r for r in rs if r.gold]
         lines.append(f"{name:8} {mean(r.recall for r in a):7.2f} {mean(r.recall == 1 for r in a):6.2f} "
                      f"{mean(r.precision for r in a):6.2f} {mean(len(r.returned) for r in rs):6.1f} "
-                     f"{mean(r.chars for r in rs):6.0f} {mean(r.latency for r in rs):7.2f}s {mean(r.calls for r in rs):6.1f}")
+                     f"{mean(r.chars for r in rs):6.0f} {mean(r.latency for r in rs):7.2f}s {mean(r.calls for r in rs):6.1f} {mean(r.tokens for r in rs):7.0f}")
     un = [r for r in rows["jevmem"] if not r.gold]
-    lines.append(f"\nunanswerable ({len(un)}): items returned avg  vector={mean(len(r.returned) for r in rows['vector'] if not r.gold):.1f}"
-                 f"  hybrid={mean(len(r.returned) for r in rows['hybrid'] if not r.gold):.1f}"
-                 f"  jevmem={mean(len(r.returned) for r in un):.1f};  jevmem abstained (sufficient!=True): "
-                 f"{mean(r.sufficient is not True for r in un):.2f}")
-    by = {}
-    for r in rows["jevmem"]:
-        by.setdefault(r.kind, []).append(r)
-    lines.append("jevmem by kind (recall): " + ", ".join(
-        f"{kd}={mean(x.recall for x in rs):.2f}" for kd, rs in by.items() if kd != "unanswerable"))
+    lines.append(f"\nunanswerable ({len(un)}): items returned avg  " + "  ".join(
+        f"{n}={mean(len(r.returned) for r in rs if not r.gold):.1f}" for n, rs in rows.items())
+        + f";  jevmem abstained (sufficient!=True): {mean(r.sufficient is not True for r in un):.2f}")
+    kinds = sorted({r.kind for r in rows["jevmem"] if r.gold})
+    lines.append(f"\nrecall by kind:  {'':12}" + "".join(f"{kd[:10]:>11}" for kd in kinds))
+    for n, rs in rows.items():
+        cells = []
+        for kd in kinds:
+            xs = [r.recall for r in rs if r.kind == kd and r.gold]
+            cells.append(f"{mean(xs):6.2f} (n={len(xs)})")
+        lines.append(f"  {n:20}" + "".join(f"{c:>11}" for c in cells))
+    tok = mean(r.tokens for r in rows["jevmem"])
+    lines.append(f"\njev cost per question: ~{tok:.0f} input tokens ≈ ${tok * 0.042 / 1e6:.5f} at $0.042/1M")
     return "\n".join(lines)
 
 
@@ -119,5 +127,23 @@ def run(path: str, k: int = 5, out_json: str | None = None) -> None:
     if out_json:
         json.dump({n: [{"q": r.q, "kind": r.kind, "recall": None if not r.gold else r.recall,
                         "returned": r.returned, "assess": r.assess, "sufficient": r.sufficient,
-                        "latency": r.latency, "calls": r.calls} for r in rs] for n, rs in rows.items()},
+                        "latency": r.latency, "calls": r.calls, "tokens": r.tokens} for r in rs] for n, rs in rows.items()},
                   open(out_json, "w"), indent=1)
+
+
+def run_injection(path: str = "evals/injection.json") -> None:
+    """Write-path screen accuracy: benign memory-style notes (incl. imperative conventions) must be stored,
+    injections must be rejected. Uses the real Writer, so it measures what users get."""
+    data = json.load(open(path))
+    svc = Service(":memory:")
+    res = {"benign": [], "malicious": []}
+    for kind in res:
+        for text in data[kind]:
+            r, _ = svc.write(text, "project:inj")
+            res[kind].append((r.rejected, r.reason, text))
+    fp = [x for x in res["benign"] if x[0]]
+    fn = [x for x in res["malicious"] if not x[0]]
+    print(f"threshold {svc.cfg.injection_block}: benign blocked {len(fp)}/{len(res['benign'])} (false positives), "
+          f"malicious stored {len(fn)}/{len(res['malicious'])} (false negatives); jev calls={svc.decider.calls}")
+    for _, why, t in fp: print(f"  FP ({why}) {t}")
+    for _, _, t in fn: print(f"  FN {t}")

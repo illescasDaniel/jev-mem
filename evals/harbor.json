@@ -1,0 +1,639 @@
+{
+ "name": "harbor-heldout",
+ "scope": "project:harbor",
+ "notes": [
+  {
+   "key": "h1",
+   "timestamp": "2025-11-03",
+   "content": "Harbor ingests partner CSV files from an SFTP drop every night at 02:00 UTC.",
+   "entities": [
+    "Harbor",
+    "SFTP"
+   ]
+  },
+  {
+   "key": "h2",
+   "timestamp": "2025-11-10",
+   "content": "Harbor's transformation layer is written in dbt and executed by Airflow.",
+   "entities": [
+    "Harbor",
+    "dbt",
+    "Airflow"
+   ]
+  },
+  {
+   "key": "h3",
+   "timestamp": "2025-11-18",
+   "content": "The warehouse behind Harbor is Snowflake, in the EU-West region.",
+   "entities": [
+    "Harbor",
+    "Snowflake"
+   ]
+  },
+  {
+   "key": "h29",
+   "timestamp": "2025-11-25",
+   "content": "Harbor's CI runs dbt build against a small sample dataset in a Snowflake dev schema.",
+   "entities": [
+    "Harbor",
+    "dbt",
+    "Snowflake"
+   ]
+  },
+  {
+   "key": "h4",
+   "timestamp": "2025-12-02",
+   "content": "Priya Natarajan is the on-call engineer for Harbor during the first two weeks of each month.",
+   "entities": [
+    "Priya",
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h5",
+   "timestamp": "2025-12-09",
+   "content": "Marco handles on-call for Harbor in the second half of each month.",
+   "entities": [
+    "Marco",
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h6",
+   "timestamp": "2025-12-15",
+   "content": "Decision on 2025-12-15: Harbor will not use Spark, since the data volumes stay below 50 GB per day and dbt is sufficient.",
+   "entities": [
+    "Harbor",
+    "Spark",
+    "dbt"
+   ]
+  },
+  {
+   "key": "h7",
+   "timestamp": "2026-01-08",
+   "content": "Incident on 2026-01-08: the nightly load failed because a partner changed the CSV delimiter from comma to semicolon without notice. The loader now sniffs the delimiter.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h8",
+   "timestamp": "2026-01-20",
+   "content": "Harbor's Airflow DAGs must set retries to 3 with exponential backoff; never use fixed delays.",
+   "entities": [
+    "Harbor",
+    "Airflow"
+   ]
+  },
+  {
+   "key": "h30",
+   "timestamp": "2026-01-27",
+   "content": "The postmortem owner for incidents in Harbor is whoever was on call at the time.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h9",
+   "timestamp": "2026-02-04",
+   "content": "Data quality checks in Harbor use Great Expectations, run after every dbt model build.",
+   "entities": [
+    "Harbor",
+    "Great Expectations",
+    "dbt"
+   ]
+  },
+  {
+   "key": "h10",
+   "timestamp": "2026-02-11",
+   "content": "All Harbor tables containing personal data are tagged pii and must be masked in the staging environment.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h11",
+   "timestamp": "2026-02-25",
+   "content": "The Harbor staging environment is refreshed from production snapshots every Wednesday.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h12",
+   "timestamp": "2026-03-03",
+   "content": "Alerts from Harbor go to the #harbor-alerts channel; severity one pages the on-call via PagerDuty.",
+   "entities": [
+    "Harbor",
+    "PagerDuty"
+   ]
+  },
+  {
+   "key": "h33",
+   "timestamp": "2026-03-09",
+   "content": "Harbor does not retain raw partner files longer than 400 days because of the contractual retention limit.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h13",
+   "timestamp": "2026-03-17",
+   "content": "Marco prefers pairing sessions over written design docs for small Harbor changes.",
+   "entities": [
+    "Marco",
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h14",
+   "timestamp": "2026-03-30",
+   "content": "Harbor's orchestration moved from Airflow 2.6 to Airflow 2.9 on 2026-03-30 to get dataset-aware scheduling.",
+   "entities": [
+    "Harbor",
+    "Airflow"
+   ]
+  },
+  {
+   "key": "h15",
+   "timestamp": "2026-04-07",
+   "content": "Snowflake costs for Harbor were reduced by 30 percent after switching the warehouse size from Large to Medium on 2026-04-07.",
+   "entities": [
+    "Harbor",
+    "Snowflake"
+   ]
+  },
+  {
+   "key": "h34",
+   "timestamp": "2026-04-14",
+   "content": "Dashboards for Harbor are built in Metabase and read only from the marts schema.",
+   "entities": [
+    "Harbor",
+    "Metabase"
+   ]
+  },
+  {
+   "key": "h16",
+   "timestamp": "2026-04-21",
+   "content": "Because the Medium warehouse is slower, the month-end aggregation job in Harbor now runs at 22:00 UTC instead of 02:00 UTC.",
+   "entities": [
+    "Harbor",
+    "Snowflake"
+   ]
+  },
+  {
+   "key": "h17",
+   "timestamp": "2026-05-05",
+   "content": "Priya's on-call rotation for Harbor was changed on 2026-05-05: she now covers the last two weeks of each month, and Marco covers the first two.",
+   "entities": [
+    "Priya",
+    "Marco",
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h18",
+   "timestamp": "2026-05-12",
+   "content": "Harbor secrets are stored in AWS Secrets Manager and rotated every 90 days.",
+   "entities": [
+    "Harbor",
+    "AWS Secrets Manager"
+   ]
+  },
+  {
+   "key": "h35",
+   "timestamp": "2026-05-19",
+   "content": "The Harbor team standup is at 09:30 CET on weekdays.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h19",
+   "timestamp": "2026-05-26",
+   "content": "Gotcha: the dbt incremental model for orders silently drops late-arriving rows older than 3 days unless the lookback window is increased.",
+   "entities": [
+    "Harbor",
+    "dbt"
+   ]
+  },
+  {
+   "key": "h20",
+   "timestamp": "2026-06-09",
+   "content": "Harbor's SFTP drop moved from a self-hosted server to AWS Transfer Family on 2026-06-09, after the old server's disk failed.",
+   "entities": [
+    "Harbor",
+    "SFTP",
+    "AWS Transfer Family"
+   ]
+  },
+  {
+   "key": "h21",
+   "timestamp": "2026-06-23",
+   "content": "Convention: every new Harbor dbt model needs a description and at least one uniqueness test on its primary key.",
+   "entities": [
+    "Harbor",
+    "dbt"
+   ]
+  },
+  {
+   "key": "h36",
+   "timestamp": "2026-06-30",
+   "content": "Harbor row counts are compared against partner-supplied manifests; a mismatch greater than 0.5 percent blocks the load.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h22",
+   "timestamp": "2026-07-07",
+   "content": "The Harbor data catalog is DataHub; owners must be filled in for every dataset.",
+   "entities": [
+    "Harbor",
+    "DataHub"
+   ]
+  },
+  {
+   "key": "h23",
+   "timestamp": "2026-07-21",
+   "content": "Harbor's CSV loader processes files in parallel with a maximum of 8 workers.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h37",
+   "timestamp": "2026-07-28",
+   "content": "The Great Expectations suite for orders was extended on 2026-07-28 to also check currency codes against ISO 4217.",
+   "entities": [
+    "Harbor",
+    "Great Expectations"
+   ]
+  },
+  {
+   "key": "h24",
+   "timestamp": "2026-08-04",
+   "content": "Decision on 2026-08-04: Harbor adopts Iceberg tables for the raw layer because they allow schema evolution without rewrites.",
+   "entities": [
+    "Harbor",
+    "Iceberg"
+   ]
+  },
+  {
+   "key": "h25",
+   "timestamp": "2026-08-18",
+   "content": "Priya Natarajan is presenting the Harbor architecture at the internal data guild on 2026-09-15.",
+   "entities": [
+    "Priya",
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h38",
+   "timestamp": "2026-08-31",
+   "content": "Cost alert: Snowflake credits for Harbor exceeded the monthly budget of 800 credits in August 2026, mostly due to a runaway backfill.",
+   "entities": [
+    "Harbor",
+    "Snowflake"
+   ]
+  },
+  {
+   "key": "h26",
+   "timestamp": "2026-09-01",
+   "content": "On 2026-09-01 the partner Acme started sending files gzip-compressed; the loader handles .gz transparently.",
+   "entities": [
+    "Harbor",
+    "Acme"
+   ]
+  },
+  {
+   "key": "h27",
+   "timestamp": "2026-09-09",
+   "content": "Harbor's SLA: data must be available in the warehouse by 07:00 UTC on business days.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h28",
+   "timestamp": "2026-09-16",
+   "content": "Marco is on parental leave from 2026-10-01 until 2027-01-15, so Priya covers all Harbor on-call during that time.",
+   "entities": [
+    "Marco",
+    "Priya",
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h31",
+   "timestamp": "2026-01-13",
+   "content": "The data guild meets on the first Tuesday of every month.",
+   "entities": []
+  },
+  {
+   "key": "h32",
+   "timestamp": "2026-02-18",
+   "content": "Acme is a partner that sends order files; Globex sends inventory files.",
+   "entities": [
+    "Acme",
+    "Globex"
+   ]
+  },
+  {
+   "key": "h39",
+   "timestamp": "2026-09-22",
+   "content": "Backfills in Harbor must be run on the XS warehouse and approved by the on-call engineer.",
+   "entities": [
+    "Harbor"
+   ]
+  },
+  {
+   "key": "h40",
+   "timestamp": "2026-09-29",
+   "content": "Harbor's retention limit for raw partner files was reduced from 400 days to 365 days on 2026-09-29.",
+   "entities": [
+    "Harbor"
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "q": "When does the nightly partner file import start?",
+   "gold": [
+    "h1"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What tool schedules our data transformations?",
+   "gold": [
+    "h2"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Where is the data warehouse hosted?",
+   "gold": [
+    "h3"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why didn't we pick Spark?",
+   "gold": [
+    "h6"
+   ],
+   "kind": "negation"
+  },
+  {
+   "q": "What broke the load in January and how did we make it resilient?",
+   "gold": [
+    "h7"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What retry policy should DAGs use?",
+   "gold": [
+    "h8"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How do we validate data quality?",
+   "gold": [
+    "h9"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What do we do with sensitive columns in non-production?",
+   "gold": [
+    "h10"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How often is the test environment synced with prod?",
+   "gold": [
+    "h11"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How are urgent alerts escalated?",
+   "gold": [
+    "h12"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Does Marco like writing design docs?",
+   "gold": [
+    "h13"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Which Airflow version are we on?",
+   "gold": [
+    "h14"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How did we cut the Snowflake bill?",
+   "gold": [
+    "h15"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why does the month-end aggregation run in the evening now?",
+   "gold": [
+    "h16",
+    "h15"
+   ],
+   "kind": "multi-hop"
+  },
+  {
+   "q": "Who is on call for the first two weeks of a month?",
+   "gold": [
+    "h17"
+   ],
+   "kind": "superseded"
+  },
+  {
+   "q": "How often are credentials rotated and where are they kept?",
+   "gold": [
+    "h18"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why might old orders be missing from the incremental model?",
+   "gold": [
+    "h19"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why did the SFTP server change?",
+   "gold": [
+    "h20"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What must every new dbt model include?",
+   "gold": [
+    "h21"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Which tool is our data catalog?",
+   "gold": [
+    "h22"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How many parallel workers does the loader use?",
+   "gold": [
+    "h23"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why did we choose Iceberg?",
+   "gold": [
+    "h24"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "When is the architecture talk and who gives it?",
+   "gold": [
+    "h25"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What changed about partner file compression?",
+   "gold": [
+    "h26"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "By what time must the warehouse be loaded each workday?",
+   "gold": [
+    "h27"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Who covers on-call after Marco leaves?",
+   "gold": [
+    "h28"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Who owns incident postmortems?",
+   "gold": [
+    "h30"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "How long are raw partner files kept?",
+   "gold": [
+    "h40"
+   ],
+   "kind": "superseded"
+  },
+  {
+   "q": "What do the dashboards read from?",
+   "gold": [
+    "h34"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What blocks a load when partner manifests disagree?",
+   "gold": [
+    "h36"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What happened to Snowflake spend in August and why?",
+   "gold": [
+    "h38"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What are the rules for running backfills?",
+   "gold": [
+    "h39"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "What did we change in the orders checks in July?",
+   "gold": [
+    "h37"
+   ],
+   "kind": "single"
+  },
+  {
+   "q": "Why did we reduce the warehouse size and what side effect did that have?",
+   "gold": [
+    "h15",
+    "h16"
+   ],
+   "kind": "multi-hop"
+  },
+  {
+   "q": "Which came first: the on-call rotation change or the SFTP migration?",
+   "gold": [
+    "h17",
+    "h20"
+   ],
+   "kind": "temporal"
+  },
+  {
+   "q": "What is the Snowflake contract renewal date?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "Which BI tool do executives use for board reports?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "Who is the data protection officer?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "What is the disaster recovery RTO for Harbor?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "What is the maximum file size accepted from partners?",
+   "gold": [],
+   "kind": "unanswerable"
+  },
+  {
+   "q": "What is the on-call phone number?",
+   "gold": [],
+   "kind": "unanswerable"
+  }
+ ]
+}

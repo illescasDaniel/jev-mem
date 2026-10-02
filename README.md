@@ -85,19 +85,39 @@ Nothing is deleted or generated. Results only annotate the graph:
 the sufficiency thresholds. Dataset format: `{"scope", "notes":[{key,timestamp,content,entities}],
 "questions":[{q, gold:[note keys], kind}]}` (empty `gold` = unanswerable).
 
-Result on `evals/orbit.json` (25 notes, 30 questions: single, multi-hop, superseded, temporal, 6 unanswerable):
+Datasets: `evals/orbit.json` (25 notes / 30 questions, used to tune thresholds, so **in-sample**) and
+`evals/harbor.json` (40 notes / 41 questions, a different domain, run once with frozen defaults before any tuning,
+so **held-out**). Both include superseded facts, multi-hop, temporal and 6 unanswerable questions.
+`jevmem-flat` is an ablation with graph expansion off (`max_depth=0`); `hybrid@3` is hybrid search cut to 3 items.
 
-| method | recall | exact | precision | items returned | chars | latency | Jev calls |
-|---|---|---|---|---|---|---|---|
-| vector top-5 | 0.83 | 0.79 | 0.18 | 5.0 | 459 | ~0 | 0 |
-| hybrid top-5 | 0.96 | 0.96 | 0.22 | 5.0 | 466 | ~0 | 0 |
-| jevmem | 1.00 | 1.00 | 0.83 | 1.3 | 133 | 0.9 s | 4.1 |
+Held-out (`harbor`):
 
-On unanswerable questions the baselines return 5 items; jevmem returns 0.2 on average and reports
-`sufficient=false` every time. Caveats: small dataset written by us; thresholds were tuned on the same questions
-(the optimum is a wide plateau, so it is probably robust, but it is not held-out); the vector baseline uses the
-dependency-free hash embedder, not a real embedding model, so treat the vector row as a weak baseline. Next step:
-a held-out set from real project notes and/or a LoCoMo subset.
+| method | recall | exact | precision | items | chars | latency | Jev calls | Jev input tokens |
+|---|---|---|---|---|---|---|---|---|
+| vector top-5 | 0.69 | 0.66 | 0.14 | 5.0 | 480 | ~0 | 0 | 0 |
+| hybrid top-5 | 0.79 | 0.74 | 0.17 | 5.0 | 470 | ~0 | 0 | 0 |
+| hybrid top-3 | 0.79 | 0.74 | 0.28 | 3.0 | 282 | ~0 | 0 | 0 |
+| jevmem-flat | 0.87 | 0.86 | 0.68 | 1.4 | 150 | 1.0 s | 4.0 | 3.3k |
+| jevmem | 0.96 | 0.94 | 0.71 | 1.7 | 179 | 1.2 s | 4.7 | 4.7k |
+
+In-sample (`orbit`): vector 0.83, hybrid 0.96, jevmem 1.00 (flat ablation also 1.00) with ~1.2 items / 122 chars.
+
+Reading it: on unseen data the lift over hybrid holds (0.79 -> 0.96 recall) and the injected context is about 40%
+the size of hybrid top-5 (and precision is 4x). Graph expansion earns its keep on the held-out set (flat 0.87 ->
+0.96), which orbit could not show. Jev cost is ~4.7k input tokens per recall, about $0.0002. On unanswerable
+questions the baselines return 5 items; jevmem returns under 1 and reports `sufficient=false` every time
+(6/6 on both sets). With defaults the held-out sufficiency check had 1 false positive and 1 false negative of 41.
+
+`uv run jevmem eval-injection` checks the write-path screen with `evals/injection.json` (15 benign notes, including
+imperative team conventions such as "never use pip", and 10 injection attempts). The first run **blocked 9/15 benign
+notes** because the screen question treated any imperative as an injection; the question was reworded to target text
+aimed at the agent itself, after which it was 0/15 false positives and 0/10 false negatives. That rewording was
+tuned on this same small set, so treat it as a regression test, not a measured rate.
+
+Caveats: small datasets written by us (the held-out notes were written after the system, by the same author);
+single run each (Jev is not perfectly deterministic); the vector baseline uses the dependency-free hash embedder, not
+a real embedding model, so it is a weak baseline; precision is low for baselines by construction (fixed k). Next:
+a real embedding baseline and a LoCoMo subset (both need model/data downloads).
 
 The paper's stop thresholds (sufficient >= 0.95, missing < 0.15) did not fit our wording; defaults are now
 sufficient >= 0.5, missing < 0.6, contradiction < 0.6 (`Config`). Superseded notes are marked in the evidence Jev
@@ -129,7 +149,7 @@ src/jevmem/
   write.py      screen -> type -> candidates -> relations
   retrieve.py   route -> anchors -> budgeted expansion -> stop
   consolidate.py periodic redundancy/contradiction/obsolescence pass + synthesis queue
-  evalharness.py `jevmem eval`: baselines vs jevmem + threshold sweep
+  evalharness.py `jevmem eval` / `eval-injection`: baselines, ablation, sweep, screen accuracy
   decide.py     Judge: route/filter/stop/check/screen for agent apps
   service.py    shared wiring (db path, env)
   mcp_server.py MCP tools
