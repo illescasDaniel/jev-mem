@@ -60,6 +60,7 @@ class Writer:
         self.store.set_type_scores(nid, scores)
         res = WriteResult(nid, type_scores=scores)
         self._relate(nid, res)
+        self.store.bump_writes()
         return res
 
     def _relate(self, nid: int, res: WriteResult) -> None:

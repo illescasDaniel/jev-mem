@@ -24,3 +24,8 @@ class Config:
     time_budget_s: float = 15.0
     score_chunk: int = 12                # candidates per scoring call
     min_relevance: float = 0.30          # anchors judged below this are dropped from results
+    consolidate_every: int = 20          # successful writes between consolidation passes
+    consolidate_candidates: int = 3      # neighbours judged per new node
+    consolidate_max_nodes: int = 20      # nodes per pass (= one Jev call each, ~3-5 s inline)
+    consolidate_threshold: float = 0.85  # merge/promote/contradiction/obsolescence cut-off
+    superseded_penalty: float = 0.6      # score multiplier for superseded/merged notes in recall

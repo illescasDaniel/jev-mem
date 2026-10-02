@@ -37,8 +37,9 @@ def session_start(svc: Service, payload: dict) -> str | None:
     scope = default_scope(payload.get("cwd"))
     keys = ("convention", "gotcha", "decision", "preference")
     ranked = []
+    skip = set(svc.store.pending("unscreened")) | svc.store.flagged("superseded_by", "merged_into")
     for n in svc.store.nodes([scope, "global"]):
-        if n.id in set(svc.store.pending("unscreened")) or not n.type_scores:
+        if n.id in skip or not n.type_scores:
             continue
         top = max(n.type_scores.get(k, 0.0) for k in keys)
         if top >= 0.7:
@@ -70,7 +71,7 @@ def user_prompt(svc: Service, payload: dict) -> str | None:
     if (os.environ.get("JEVMEM_AUTOCAPTURE", "1") != "0" and len(prompt) <= MAX_CAPTURE_CHARS
             and a["injection"].p < svc.cfg.injection_block
             and max(a[t].p for t in CAPTURE_TYPES) >= CAPTURE_MIN):
-        svc.writer.write(prompt, scope, source="auto:user-prompt")
+        svc.write(prompt, scope, source="auto:user-prompt")
     return ctx
 
 

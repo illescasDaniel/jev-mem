@@ -29,11 +29,12 @@ def memory_write(content: str, scope: str | None = None, entities: list[str] | N
     """Store ONE literal fact (decision, bugfix, convention, gotcha, preference, event).
     Use explicit entity names and ABSOLUTE dates (never 'yesterday'): the memory model reads literally.
     Content that looks like instructions to an agent is rejected. scope: 'global' or e.g. 'project:<name>'."""
-    r = svc().writer.write(content, _scope(scope), entities, timestamp, source)
+    r, rep = svc().write(content, _scope(scope), entities, timestamp, source)
     top = sorted(r.type_scores.items(), key=lambda kv: -kv[1])[:3]
     return {"node_id": r.node_id, "rejected": r.rejected, "reason": r.reason, "degraded": r.degraded,
             "top_types": top, "edges": [{"src": a, "dst": b, "kind": k, "p": round(p, 2)}
-                                        for a, b, k, p in r.edges]}
+                                        for a, b, k, p in r.edges],
+            "consolidation": dataclasses.asdict(rep) if rep else None}
 
 
 @mcp.tool()
@@ -62,6 +63,31 @@ def memory_forget(node_id: int) -> dict:
     existed = svc().store.get(node_id) is not None
     svc().store.delete_node(node_id)
     return {"deleted": existed}
+
+
+@mcp.tool()
+def memory_pending_synthesis() -> list[dict]:
+    """Merge/promote proposals from consolidation. YOU are the writer: for each item follow `instruction`,
+    then call memory_resolve(synthesis_id, text), or memory_dismiss if the proposal is wrong."""
+    return svc().consolidator.pending()
+
+
+@mcp.tool()
+def memory_resolve(synthesis_id: int, text: str) -> dict:
+    """Store your synthesized fact for a pending proposal. Source notes are kept (merged ones rank lower)."""
+    return svc().consolidator.resolve(synthesis_id, text)
+
+
+@mcp.tool()
+def memory_dismiss(synthesis_id: int) -> dict:
+    """Reject a merge/promote proposal."""
+    return svc().consolidator.dismiss(synthesis_id)
+
+
+@mcp.tool()
+def memory_consolidate() -> dict:
+    """Run a consolidation pass now (also runs automatically every 20 writes)."""
+    return dataclasses.asdict(svc().consolidator.run())
 
 
 @mcp.tool()

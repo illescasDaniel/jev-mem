@@ -76,6 +76,11 @@ class Store:
         CREATE INDEX IF NOT EXISTS edges_dst ON edges(dst);
         CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(content);
         CREATE TABLE IF NOT EXISTS pending(node_id INTEGER PRIMARY KEY, reason TEXT);
+        CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE IF NOT EXISTS flags(node_id INTEGER NOT NULL, flag TEXT NOT NULL, other_id INTEGER NOT NULL,
+          p REAL NOT NULL, PRIMARY KEY(node_id, flag, other_id));
+        CREATE TABLE IF NOT EXISTS synth(id INTEGER PRIMARY KEY, kind TEXT NOT NULL, node_ids TEXT NOT NULL,
+          p REAL NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created REAL NOT NULL, result_id INTEGER);
         """)
 
     # -- nodes ---------------------------------------------------------------
@@ -99,6 +104,7 @@ class Store:
         self.db.execute("DELETE FROM fts WHERE rowid=?", (nid,))
         self.db.execute("DELETE FROM edges WHERE src=? OR dst=?", (nid, nid))
         self.db.execute("DELETE FROM pending WHERE node_id=?", (nid,))
+        self.db.execute("DELETE FROM flags WHERE node_id=? OR other_id=?", (nid, nid))
         self.db.commit()
 
     @staticmethod
@@ -184,4 +190,54 @@ class Store:
 
     def clear_pending(self, nid: int) -> None:
         self.db.execute("DELETE FROM pending WHERE node_id=?", (nid,))
+        self.db.commit()
+
+    # -- meta / consolidation state ----------------------------------------------
+    def meta_get(self, key: str, default: int = 0) -> int:
+        r = self.db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return int(r[0]) if r else default
+
+    def meta_set(self, key: str, value: int) -> None:
+        self.db.execute("INSERT OR REPLACE INTO meta VALUES(?,?)", (key, str(value)))
+        self.db.commit()
+
+    def bump_writes(self) -> int:
+        n = self.meta_get("writes_since_consolidation") + 1
+        self.meta_set("writes_since_consolidation", n)
+        return n
+
+    def add_flag(self, nid: int, flag: str, other: int, p: float) -> None:
+        self.db.execute("INSERT OR REPLACE INTO flags VALUES(?,?,?,?)", (nid, flag, other, p))
+        self.db.commit()
+
+    def flagged(self, *flags: str) -> set[int]:
+        q = ",".join("?" * len(flags))
+        return {r[0] for r in self.db.execute(f"SELECT node_id FROM flags WHERE flag IN ({q})", flags)}
+
+    def flags_of(self, nid: int) -> list[tuple[str, int, float]]:
+        return [(r["flag"], r["other_id"], r["p"]) for r in
+                self.db.execute("SELECT * FROM flags WHERE node_id=?", (nid,))]
+
+    # -- System-Two synthesis queue ----------------------------------------------
+    def add_synth(self, kind: str, node_ids: list[int], p: float) -> int | None:
+        ids = json.dumps(sorted(node_ids))
+        if self.db.execute("SELECT 1 FROM synth WHERE kind=? AND node_ids=? AND status='pending'",
+                           (kind, ids)).fetchone():
+            return None
+        cur = self.db.execute("INSERT INTO synth(kind,node_ids,p,created) VALUES(?,?,?,?)",
+                              (kind, ids, p, time.time()))
+        self.db.commit()
+        return cur.lastrowid
+
+    def synth_items(self, status: str = "pending") -> list[dict]:
+        return [{"id": r["id"], "kind": r["kind"], "node_ids": json.loads(r["node_ids"]), "p": r["p"]}
+                for r in self.db.execute("SELECT * FROM synth WHERE status=? ORDER BY id", (status,))]
+
+    def synth_get(self, sid: int) -> dict | None:
+        r = self.db.execute("SELECT * FROM synth WHERE id=?", (sid,)).fetchone()
+        return {"id": r["id"], "kind": r["kind"], "node_ids": json.loads(r["node_ids"]),
+                "status": r["status"]} if r else None
+
+    def synth_close(self, sid: int, status: str, result_id: int | None = None) -> None:
+        self.db.execute("UPDATE synth SET status=?, result_id=? WHERE id=?", (status, result_id, sid))
         self.db.commit()

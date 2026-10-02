@@ -6,8 +6,8 @@ decision (typing, relations, routing, scoring, stopping) as batched typed
 probabilities; the host agent (Claude) is System Two and does all writing/synthesis.
 jevmem itself never calls a generative LLM.
 
-> Status: **work in progress.** Core library, MCP server/CLI, skill, hooks and Python helpers are in;
-> consolidation and the eval harness are not built yet. See `/home/daniel/.claude/plans/` for the full plan.
+> Status: **work in progress.** Core library, MCP server/CLI, skill, hooks, Python helpers and consolidation are in;
+> the eval harness is not built yet. See `/home/daniel/.claude/plans/` for the full plan.
 
 ## Installation
 
@@ -55,7 +55,7 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 | `JEVMEM_AUTOCAPTURE` | auto-store strongly stated preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
 
 Tools: `memory_write`, `memory_recall`, `memory_list`, `memory_forget`, `memory_stats`,
-`memory_flush_pending`. CLI: `uv run jevmem {write,recall,list,stats,flush,import-claude-memory}`.
+`memory_flush_pending`, `memory_consolidate`, `memory_pending_synthesis`, `memory_resolve`, `memory_dismiss`. CLI: `uv run jevmem {write,recall,list,stats,flush,consolidate,pending,import-claude-memory}`.
 
 Write memories as one literal fact with explicit entities and **absolute dates**
 ("on 2024-05-15", not "yesterday"): Jev reads literally and does not do date arithmetic.
@@ -70,6 +70,15 @@ This repo ships both for itself:
     and inject notes. A strongly stated preference/decision/convention in the prompt is auto-stored
     (disable with `JEVMEM_AUTOCAPTURE=0`).
 - Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`.
+
+## Consolidation
+Every 20 successful writes (inline, ~3-5 s, via `Service.write` / `memory_write`) Jev compares recent notes with
+their 3 nearest older neighbours: redundant? contradictory? outdated? worth linking? merge or promote?
+Nothing is deleted or generated. Results only annotate the graph:
+- contradictions are flagged on both notes; an outdated older note is flagged `superseded_by` the newer one
+  (which is older is decided in code from timestamps, not by Jev); both are down-ranked/annotated in recall;
+- merge/promote proposals (selected option and probability >= 0.85, contradiction < 0.85) wait in a queue; the host
+  agent writes the summary text (`memory_pending_synthesis` -> `memory_resolve`). Merged source notes are kept but rank lower.
 
 ## Using it from your own Python agents
 ```python
@@ -96,6 +105,7 @@ src/jevmem/
   store.py      SQLite nodes/edges + FTS5 + embeddings
   write.py      screen -> type -> candidates -> relations
   retrieve.py   route -> anchors -> budgeted expansion -> stop
+  consolidate.py periodic redundancy/contradiction/obsolescence pass + synthesis queue
   decide.py     Judge: route/filter/stop/check/screen for agent apps
   service.py    shared wiring (db path, env)
   mcp_server.py MCP tools

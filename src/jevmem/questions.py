@@ -115,14 +115,32 @@ def candidate_questions(n: int) -> dict[str, Question]:
     return q
 
 
-def representation_question() -> ChoiceQ:
-    return ChoiceQ(
-        "Compare `new_memory.content` with `candidates[0].content`. Which representation best fits the "
-        "relationship between these two observations? Judge only from the supplied accounts.",
-        {"keep_separate": "Contradictory accounts, unique details a combined form would lose, or distinct facts.",
-         "merge": "Compatible accounts of the same fact or event that can be combined without losing details.",
-         "promote": "Distinct repeated episodes that support a stable general pattern.",
-         "uncertain": "Insufficient evidence to choose a safe combined or separate representation."})
+def consolidation_questions(n: int) -> dict[str, Question]:
+    """Per (new_memory, candidates[i]) pair. Judged from the supplied accounts only."""
+    q: dict[str, Question] = {}
+    for i in range(n):
+        c = f"candidates[{i}].content"
+        q[f"pair_{i}_redundant"] = NoulQ(
+            f"Does `new_memory.content` state essentially the same fact as `{c}`, adding no distinct detail? "
+            "true: the two are duplicates or paraphrases. false: each has details the other lacks.")
+        q[f"pair_{i}_contradiction"] = NoulQ(
+            f"Do `new_memory.content` and `{c}` make incompatible claims about the same subject? "
+            "true: they cannot both be true as stated. false: compatible, unrelated, or one is more specific.")
+        q[f"pair_{i}_obsolescence"] = NoulQ(
+            f"Does `new_memory.content` update or replace the fact in `{c}`, making the candidate outdated? "
+            "true: the new account changes a decision, value or state described by the candidate. "
+            "false: the candidate is still valid alongside the new account.")
+        q[f"pair_{i}_link_usefulness"] = NoulQ(
+            f"Would linking `new_memory.content` and `{c}` help retrieve one when the other is relevant? "
+            "true: a specific shared topic, fact or event. false: only generic vocabulary.")
+        q[f"pair_{i}_representation"] = ChoiceQ(
+            f"Compare `new_memory.content` with `{c}`. Which representation best fits the relationship "
+            "between these two observations? Judge only from the supplied accounts.",
+            {"keep_separate": "Contradictory accounts, unique details a combined form would lose, or distinct facts.",
+             "merge": "Compatible accounts of the same fact or event that can be combined without losing details.",
+             "promote": "Distinct repeated episodes that support a stable general pattern.",
+             "uncertain": "Insufficient evidence to choose a safe combined or separate representation."})
+    return q
 
 
 def anchor_questions(n: int) -> dict[str, Question]:

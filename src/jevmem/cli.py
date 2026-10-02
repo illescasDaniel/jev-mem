@@ -20,7 +20,7 @@ def import_claude_memory(svc: Service, root: Path) -> int:
         base = Path.cwd().name
         # match hooks' scope (basename of cwd) when importing the current project's memory
         scope = f"project:{base}" if proj.endswith("-" + base) else f"project:{proj}"
-        r = svc.writer.write(body, scope=scope, source=str(f))
+        r, _ = svc.write(body, scope=scope, source=str(f))
         n += 0 if r.rejected else 1
         print(f"{'skip' if r.rejected else 'ok  '} {f} {r.reason or ''}")
     return n
@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> None:
     w.add_argument("--entity", action="append"); w.add_argument("--timestamp")
     r = sub.add_parser("recall"); r.add_argument("query"); r.add_argument("--scope"); r.add_argument("-k", type=int, default=8)
     l = sub.add_parser("list"); l.add_argument("--scope")
-    sub.add_parser("stats"); sub.add_parser("flush")
+    sub.add_parser("stats"); sub.add_parser("flush"); sub.add_parser("consolidate"); sub.add_parser("pending")
     h = sub.add_parser("hook"); h.add_argument("event", choices=["session-start", "user-prompt"])
     i = sub.add_parser("import-claude-memory"); i.add_argument("--root", default=str(Path.home() / ".claude" / "projects"))
     a = ap.parse_args(argv)
@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> None:
         return run(a.event)
     svc = Service()
     if a.cmd == "write":
-        res = svc.writer.write(a.content, a.scope, a.entity, a.timestamp)
+        res, _ = svc.write(a.content, a.scope, a.entity, a.timestamp)
         print(json.dumps({"node_id": res.node_id, "rejected": res.rejected, "reason": res.reason,
                           "edges": res.edges}, indent=2))
     elif a.cmd == "recall":
@@ -55,6 +55,11 @@ def main(argv: list[str] | None = None) -> None:
             print(f"[{n.id}] ({n.scope}) {n.content}")
     elif a.cmd == "stats":
         print(json.dumps(svc.stats(), indent=2))
+    elif a.cmd == "consolidate":
+        import dataclasses
+        print(json.dumps(dataclasses.asdict(svc.consolidator.run()), indent=2))
+    elif a.cmd == "pending":
+        print(json.dumps(svc.consolidator.pending(), indent=2))
     elif a.cmd == "flush":
         print("resolved:", svc.writer.flush_pending())
     elif a.cmd == "import-claude-memory":

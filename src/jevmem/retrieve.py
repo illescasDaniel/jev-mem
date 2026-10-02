@@ -24,6 +24,7 @@ class Evidence:
     timestamp: str | None
     scope: str
     via: str = "anchor"
+    flags: list[str] = field(default_factory=list)   # e.g. "superseded", "contradicts:12"
 
 
 @dataclass
@@ -71,7 +72,12 @@ class Retriever:
         beam = [i for i, _ in anchors[:cfg.beam_width]]
         res = RecallResult([], routing={})
 
+        old = self.store.flagged("superseded_by", "merged_into")
+
         def finish(reason: str) -> RecallResult:
+            for i in score:
+                if i in old:
+                    score[i] *= cfg.superseded_penalty
             top = sorted(score, key=lambda i: -score[i])[:k]
             res.evidence = [self._ev(i, score[i], via[i]) for i in top]
             res.jev_calls, res.stop_reason = calls, reason
@@ -179,7 +185,9 @@ class Retriever:
 
     def _ev(self, i, sc, via) -> Evidence:
         n = self.store.get(i)
-        return Evidence(i, n.content, sc, iso(n.timestamp), n.scope, via)
+        names = {"superseded_by": "superseded", "merged_into": "merged", "contradicts": "contradicts"}
+        flags = [f"{names[f]}:{o}" for f, o, _ in self.store.flags_of(i) if f in names]
+        return Evidence(i, n.content, sc, iso(n.timestamp), n.scope, via, flags)
 
     def _score_candidates(self, query, cands, score, via, k, graphs, now, recency):
         """Eq. 23 (+ recency eq. 24-25). Returns ({id: score}, jev_calls)."""

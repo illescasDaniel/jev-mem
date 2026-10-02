@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .config import Config
+from .consolidate import ConsolidationReport, Consolidator
 from .decider import JevDecider
 from .retrieve import Retriever
 from .store import Store
@@ -28,6 +29,15 @@ class Service:
         self.decider = decider or JevDecider()
         self.writer = Writer(self.store, self.decider, self.cfg)
         self.retriever = Retriever(self.store, self.decider, self.cfg)
+        self.consolidator = Consolidator(self.store, self.decider, self.writer, self.cfg)
+
+    def write(self, *a, **kw):
+        """Write, then run a consolidation pass if one is due. Returns (WriteResult, report|None)."""
+        res = self.writer.write(*a, **kw)
+        rep = None
+        if not res.rejected and not res.degraded and self.consolidator.due():
+            rep = self.consolidator.run()
+        return res, rep
 
     def scopes(self, scope: str | None) -> list[str] | None:
         return [scope] if scope and scope != "all" else None
@@ -37,5 +47,6 @@ class Service:
         return {"nodes": self.store.count(),
                 "pending_unscreened": len(self.store.pending("unscreened")),
                 "pending_relations": len(self.store.pending("relations")),
+                "pending_synthesis": len(self.store.synth_items()),
                 "jev_calls_this_process": getattr(d, "calls", 0),
                 "input_tokens": getattr(d, "input_tokens", 0)}
