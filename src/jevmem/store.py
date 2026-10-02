@@ -7,6 +7,7 @@ import json
 import re
 import sqlite3
 import time
+from .vectorindex import make_index
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -83,10 +84,12 @@ def tokens(text: str) -> list[str]:
 
 
 class Store:
-    def __init__(self, path: str = ":memory:", embedder: Embedder | None = None):
+    def __init__(self, path: str = ":memory:", embedder: Embedder | None = None, index: str | None = None):
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
         self.embedder = embedder or make_embedder()
+        self.path = path
+        self._index_spec = index
         self.db.executescript("""
         CREATE TABLE IF NOT EXISTS nodes(
           id INTEGER PRIMARY KEY, content TEXT NOT NULL, scope TEXT NOT NULL, ts REAL,
@@ -102,7 +105,16 @@ class Store:
           p REAL NOT NULL, PRIMARY KEY(node_id, flag, other_id));
         CREATE TABLE IF NOT EXISTS synth(id INTEGER PRIMARY KEY, kind TEXT NOT NULL, node_ids TEXT NOT NULL,
           p REAL NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created REAL NOT NULL, result_id INTEGER);
+        CREATE TABLE IF NOT EXISTS node_entities(node_id INTEGER NOT NULL, entity TEXT NOT NULL,
+          PRIMARY KEY(node_id, entity));
+        CREATE INDEX IF NOT EXISTS node_entities_e ON node_entities(entity);
+        CREATE INDEX IF NOT EXISTS nodes_scope ON nodes(scope);
+        CREATE INDEX IF NOT EXISTS nodes_ts ON nodes(ts);
         """)
+        self._backfill_entities()
+        dim = int(self.embedder.embed(["dim"]).shape[1])
+        self.index = make_index(self.db, dim, path, index, self.count())
+        self.sync_index()
 
     # -- nodes ---------------------------------------------------------------
     def add_node(self, content: str, scope: str = "global", timestamp: float | None = None,
@@ -113,8 +125,32 @@ class Store:
             (content, scope, timestamp, json.dumps(entities or []), source, emb.tobytes(), time.time()))
         nid = cur.lastrowid
         self.db.execute("INSERT INTO fts(rowid, content) VALUES(?,?)", (nid, content))
+        self._index_entities(nid, entities or [])
         self.db.commit()
+        self.index.add(nid, scope, emb)
         return nid
+
+    def _backfill_entities(self) -> None:
+        if self.db.execute("SELECT 1 FROM node_entities LIMIT 1").fetchone():
+            return
+        for r in self.db.execute("SELECT id, entities FROM nodes").fetchall():
+            self._index_entities(r["id"], json.loads(r["entities"]))
+        self.db.commit()
+
+    def _index_entities(self, nid: int, entities: list[str]) -> None:
+        self.db.executemany("INSERT OR IGNORE INTO node_entities VALUES(?,?)", [(nid, e.lower()) for e in entities])
+
+    def _embeddings(self):
+        for r in self.db.execute("SELECT id, scope, emb FROM nodes WHERE emb IS NOT NULL ORDER BY id"):
+            yield r["id"], r["scope"], np.frombuffer(r["emb"], dtype=np.float32)
+
+    def sync_index(self, force: bool = False) -> int | None:
+        """Rebuild a derived index from SQLite when it is missing rows (or `force`). Returns rows indexed."""
+        n = self.index.size()
+        if n is None or (not force and n == self.count()):
+            return None
+        self.index.rebuild(self._embeddings())
+        return self.count()
 
     def reembed(self) -> int:
         """Recompute every stored embedding with the current embedder (needed after switching embedders)."""
@@ -124,6 +160,7 @@ class Store:
             embs = self.embedder.embed([r["content"] for r in chunk]).astype(np.float32)
             self.db.executemany("UPDATE nodes SET emb=? WHERE id=?", [(e.tobytes(), r["id"]) for e, r in zip(embs, chunk)])
         self.db.commit()
+        self.sync_index(force=True)
         return len(rows)
 
     def set_type_scores(self, nid: int, scores: dict[str, float]) -> None:
@@ -133,10 +170,12 @@ class Store:
     def delete_node(self, nid: int) -> None:
         self.db.execute("DELETE FROM nodes WHERE id=?", (nid,))
         self.db.execute("DELETE FROM fts WHERE rowid=?", (nid,))
+        self.db.execute("DELETE FROM node_entities WHERE node_id=?", (nid,))
         self.db.execute("DELETE FROM edges WHERE src=? OR dst=?", (nid, nid))
         self.db.execute("DELETE FROM pending WHERE node_id=?", (nid,))
         self.db.execute("DELETE FROM flags WHERE node_id=? OR other_id=?", (nid, nid))
         self.db.commit()
+        self.index.remove(nid)
 
     @staticmethod
     def _node(r: sqlite3.Row) -> Node:
@@ -148,13 +187,37 @@ class Store:
         r = self.db.execute("SELECT * FROM nodes WHERE id=?", (nid,)).fetchone()
         return self._node(r) if r else None
 
-    def nodes(self, scopes: list[str] | None = None) -> list[Node]:
+    def _query(self, where: str = "", args: list | None = None, scopes: list[str] | None = None,
+               order: str = "", limit: int | None = None) -> list[Node]:
+        args, conds = list(args or []), [where] if where else []
         if scopes:
-            q = ",".join("?" * len(scopes))
-            rows = self.db.execute(f"SELECT * FROM nodes WHERE scope IN ({q})", scopes).fetchall()
-        else:
-            rows = self.db.execute("SELECT * FROM nodes").fetchall()
-        return [self._node(r) for r in rows]
+            conds.append(f"scope IN ({','.join('?' * len(scopes))})"); args += scopes
+        sql = "SELECT * FROM nodes" + (" WHERE " + " AND ".join(conds) if conds else "")
+        if order:
+            sql += f" ORDER BY {order}"
+        if limit:
+            sql += " LIMIT ?"; args.append(limit)
+        return [self._node(r) for r in self.db.execute(sql, args)]
+
+    def nodes(self, scopes: list[str] | None = None, limit: int | None = None, newest_first: bool = False) -> list[Node]:
+        """Full scans are for small/admin uses; hot paths use the targeted queries below."""
+        return self._query(scopes=scopes, order="id DESC" if newest_first else "", limit=limit)
+
+    def nodes_after(self, last_id: int, limit: int) -> list[Node]:
+        return self._query("id > ?", [last_id], order="id", limit=limit)
+
+    def nearest_in_time(self, ts: float, scopes: list[str] | None, n: int, exclude_id: int) -> list[Node]:
+        before = self._query("ts IS NOT NULL AND ts <= ? AND id != ?", [ts, exclude_id], scopes, "ts DESC", n)
+        after = self._query("ts IS NOT NULL AND ts >= ? AND id != ?", [ts, exclude_id], scopes, "ts ASC", n)
+        return sorted({x.id: x for x in before + after}.values(), key=lambda x: abs(x.timestamp - ts))[:n]
+
+    def max_timestamp(self, scopes: list[str] | None) -> float | None:
+        q = f" AND scope IN ({','.join('?' * len(scopes))})" if scopes else ""
+        return self.db.execute(f"SELECT MAX(ts) FROM nodes WHERE ts IS NOT NULL{q}", scopes or []).fetchone()[0]
+
+    def nodes_of_type(self, types: tuple[str, ...], min_score: float, scopes: list[str] | None) -> list[Node]:
+        cond = " OR ".join(f"json_extract(type_scores, '$.{t}') >= ?" for t in types)
+        return self._query(f"type_scores IS NOT NULL AND ({cond})", [min_score] * len(types), scopes)
 
     def count(self) -> int:
         return self.db.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
@@ -162,13 +225,7 @@ class Store:
     # -- search ----------------------------------------------------------------
     def vector_search(self, text: str, scopes: list[str] | None, k: int,
                       exclude: set[int] = frozenset()) -> list[tuple[int, float]]:
-        ns = [n for n in self.nodes(scopes) if n.id not in exclude]
-        if not ns:
-            return []
-        q = self.embedder.embed([text])[0]
-        sims = np.stack([n.embedding for n in ns]) @ q
-        order = np.argsort(-sims)[:k]
-        return [(ns[i].id, float(sims[i])) for i in order]
+        return self.index.search(self.embedder.embed([text])[0], scopes, k, exclude)
 
     def lexical_search(self, text: str, scopes: list[str] | None, k: int,
                        exclude: set[int] = frozenset()) -> list[tuple[int, float]]:
@@ -176,19 +233,30 @@ class Store:
         if not toks:
             return []
         match = " OR ".join(f'"{t}"' for t in toks)
-        rows = self.db.execute(
-            "SELECT rowid, bm25(fts) AS s FROM fts WHERE fts MATCH ? ORDER BY s LIMIT ?",
-            (match, k * 4 + len(exclude))).fetchall()
-        allowed = None if not scopes else {n.id for n in self.nodes(scopes)}
+        sql = "SELECT fts.rowid AS rowid, bm25(fts) AS s FROM fts"
+        args: list = [match]
+        if scopes:
+            sql += " JOIN nodes n ON n.id = fts.rowid"
+        sql += " WHERE fts MATCH ?"
+        if scopes:
+            sql += f" AND n.scope IN ({','.join('?' * len(scopes))})"; args += scopes
+        rows = self.db.execute(sql + " ORDER BY s LIMIT ?", args + [k + len(exclude)]).fetchall()
+        allowed = None
         out = [(r["rowid"], -r["s"]) for r in rows
                if r["rowid"] not in exclude and (allowed is None or r["rowid"] in allowed)]
         return out[:k]
 
     def by_entities(self, entities: list[str], scopes: list[str] | None,
                     exclude: set[int] = frozenset()) -> list[Node]:
-        want = {e.lower() for e in entities}
-        return [n for n in self.nodes(scopes)
-                if n.id not in exclude and want & {e.lower() for e in n.entities}]
+        want = list({e.lower() for e in entities})
+        if not want:
+            return []
+        q = ",".join("?" * len(want))
+        sql = f"SELECT n.* FROM nodes n WHERE n.id IN (SELECT node_id FROM node_entities WHERE entity IN ({q}))"
+        args = want
+        if scopes:
+            sql += f" AND n.scope IN ({','.join('?' * len(scopes))})"; args = args + scopes
+        return [n for n in map(self._node, self.db.execute(sql, args)) if n.id not in exclude]
 
     # -- edges -----------------------------------------------------------------
     def add_edge(self, src: int, dst: int, kind: str, weight: float = 1.0) -> None:

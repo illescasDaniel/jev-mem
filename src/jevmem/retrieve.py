@@ -116,7 +116,7 @@ class Retriever:
             beam = [i for i in beam if i in score]
 
             visited, edges_seen, depth = set(beam), 0, 0
-            now = max((n.timestamp for n in self.store.nodes(scopes) if n.timestamp), default=None)
+            now = self.store.max_timestamp(scopes)
             while True:
                 # assess
                 if (calls >= cfg.max_jev_calls or time.time() - t0 > cfg.time_budget_s):

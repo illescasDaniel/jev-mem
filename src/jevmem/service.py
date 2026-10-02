@@ -44,7 +44,7 @@ class Service:
 
     def stats(self) -> dict:
         d = self.decider
-        return {"nodes": self.store.count(),
+        return {"nodes": self.store.count(), "vector_index": self.store.index.name,
                 "pending_unscreened": len(self.store.pending("unscreened")),
                 "pending_relations": len(self.store.pending("relations")),
                 "pending_synthesis": len(self.store.synth_items()),

@@ -112,9 +112,7 @@ class Writer:
         for c in self.store.by_entities(node.entities, scopes, ex):
             score[c.id] = score.get(c.id, 0) + 1 / 30
         if node.timestamp is not None:
-            near = sorted((n for n in self.store.nodes(scopes) if n.id != node.id and n.timestamp is not None),
-                          key=lambda n: abs(n.timestamp - node.timestamp))[:3]
-            for n in near:
+            for n in self.store.nearest_in_time(node.timestamp, scopes, 3, node.id):
                 score[n.id] = score.get(n.id, 0) + 1 / 90
         hidden = set(self.store.pending(UNSCREENED))
         return [i for i, _ in sorted(score.items(), key=lambda kv: -kv[1]) if i not in hidden][:k]

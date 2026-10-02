@@ -38,7 +38,7 @@ def session_start(svc: Service, payload: dict) -> str | None:
     keys = ("convention", "gotcha", "decision", "preference")
     ranked = []
     skip = set(svc.store.pending("unscreened")) | svc.store.flagged("superseded_by", "merged_into")
-    for n in svc.store.nodes([scope, "global"]):
+    for n in svc.store.nodes_of_type(keys, 0.7, [scope, "global"]):
         if n.id in skip or not n.type_scores:
             continue
         top = max(n.type_scores.get(k, 0.0) for k in keys)

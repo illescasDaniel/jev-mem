@@ -34,7 +34,7 @@ def main(argv: list[str] | None = None) -> None:
     w.add_argument("--entity", action="append"); w.add_argument("--timestamp")
     r = sub.add_parser("recall"); r.add_argument("query"); r.add_argument("--scope"); r.add_argument("-k", type=int, default=8)
     l = sub.add_parser("list"); l.add_argument("--scope")
-    sub.add_parser("stats"); sub.add_parser("flush"); sub.add_parser("consolidate"); sub.add_parser("pending")
+    sub.add_parser("stats"); sub.add_parser("reindex"); sub.add_parser("flush"); sub.add_parser("consolidate"); sub.add_parser("pending")
     e = sub.add_parser("eval"); e.add_argument("--data", default="evals/orbit.json"); e.add_argument("-k", type=int, default=5); e.add_argument("--json"); e.add_argument("--embedder", help="hash | fastembed[:model]")
     ei = sub.add_parser("eval-injection"); ei.add_argument("--data", default="evals/injection.json")
     h = sub.add_parser("hook"); h.add_argument("event", choices=["session-start", "user-prompt"])
@@ -66,6 +66,9 @@ def main(argv: list[str] | None = None) -> None:
             print(f"[{n.id}] ({n.scope}) {n.content}")
     elif a.cmd == "stats":
         print(json.dumps(svc.stats(), indent=2))
+    elif a.cmd == "reindex":
+        n = svc.store.sync_index(force=True)
+        print(f"index={svc.store.index.name} rows={'n/a (derived lazily)' if n is None else n}")
     elif a.cmd == "consolidate":
         import dataclasses
         print(json.dumps(dataclasses.asdict(svc.consolidator.run()), indent=2))

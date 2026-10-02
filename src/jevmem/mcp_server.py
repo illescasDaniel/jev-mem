@@ -52,7 +52,7 @@ def memory_recall(query: str, scope: str | None = None, max_items: int = 8) -> d
 @mcp.tool()
 def memory_list(scope: str | None = None, limit: int = 30) -> list[dict]:
     """List stored memories (newest first) with their top memory types."""
-    nodes = sorted(svc().store.nodes(svc().scopes(scope)), key=lambda n: -n.id)[:limit]
+    nodes = svc().store.nodes(svc().scopes(scope), limit, newest_first=True)
     return [{"id": n.id, "scope": n.scope, "content": n.content, "timestamp": n.timestamp,
              "top_types": sorted((n.type_scores or {}).items(), key=lambda kv: -kv[1])[:2]} for n in nodes]
 

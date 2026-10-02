@@ -36,8 +36,8 @@ class Consolidator:
         cfg, rep = self.cfg, ConsolidationReport()
         last = self.store.meta_get("last_consolidated_id")
         hidden = set(self.store.pending(UNSCREENED))
-        todo = sorted((n for n in self.store.nodes() if n.id > last and n.id not in hidden),
-                      key=lambda n: n.id)[:max_nodes or cfg.consolidate_max_nodes]
+        cap = max_nodes or cfg.consolidate_max_nodes
+        todo = [n for n in self.store.nodes_after(last, cap + len(hidden)) if n.id not in hidden][:cap]
         for node in todo:
             scopes = [node.scope] if node.scope == "global" else [node.scope, "global"]
             ids = [i for i in self.writer._candidates(node, scopes) if i < node.id][:cfg.consolidate_candidates]

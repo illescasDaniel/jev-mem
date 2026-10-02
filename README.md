@@ -50,6 +50,7 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 |---|---|---|
 | `TYPESAFE_API_KEY` | Jev key (via `JEVMEM_ENV_FILE`, `~/.jevmem/.env` or `.env`) | required |
 | `JEVMEM_DB` | SQLite file | `~/.jevmem/memory.db` |
+| `JEVMEM_INDEX` | vector index: `auto`, `matrix`, `sqlite-vec`, `qdrant[:path-or-url]` | `auto` |
 | `JEVMEM_SCOPE` | default scope for write/recall | `global` (hooks: `project:<folder name>`) |
 | `JEVMEM_AUTOCAPTURE` | auto-store strongly stated preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
 
@@ -142,9 +143,23 @@ roughly halves the context at higher recall for ~$0.0001 and ~0.25 s). The routi
 cost ~1 s and 4-5 Jev calls and add the multi-hop recall (0.20 -> 0.70 on LoCoMo), cleaner abstention and the
 smallest context. Whether that is worth it depends on how multi-hop your questions are.
 
-Scale: vector and lexical search are brute force over SQLite (~6 ms per 1k notes: 65 ms at 10k, 180 ms at 30k).
-That is fine up to a few tens of thousands of notes per scope; beyond that the vector step should move to an ANN
-index (sqlite-vec, Qdrant, Chroma). Only `Store.vector_search` touches vectors, so that is the seam.
+### Scaling: pluggable vector index
+SQLite (`nodes.emb`) stays the source of truth; the vector index is a derived copy you can drop and rebuild
+(`jevmem reindex`, also automatic on open if a persistent index is missing rows). Pick one with `JEVMEM_INDEX`
+(`uv sync --extra index` installs the optional ones):
+
+| index | what it is | 100k notes x 384-d, scope-filtered top-10 |
+|---|---|---|
+| `matrix` (default) | exact, in-RAM numpy matrix, lazily loaded, incremental adds | 4.5 ms, ~150 MB RAM |
+| `sqlite-vec` | exact KNN in the same SQLite file, partitioned by scope, no extra RAM | 12 ms, 3 s to build, 0.7 ms per add |
+| `qdrant[:path or http://host:6333]` | external/shared vector DB | local mode 700 ms (exact, in-process, not HNSW) |
+
+`auto` uses `matrix` and switches to `sqlite-vec` past 100k notes. Qdrant only becomes an ANN (HNSW) with a Qdrant
+*server* URL (not benchmarked here: no server in this environment), so use it for multi-million notes or when
+several machines share one memory. Tests check that all three agree with brute force, honour scope and exclusion
+filters, and recover from a lost index. Other scale fixes: scope, entity and time-neighbour lookups now run as
+indexed SQL instead of scanning every note (previously each write scanned its whole scope), and the full-text
+search filters by scope inside SQLite. Jev cost does not grow with store size; it is set by `max_jev_calls`.
 
 The paper's stop thresholds (sufficient >= 0.95, missing < 0.15) did not fit our wording; defaults are now
 sufficient >= 0.5, missing < 0.6, contradiction < 0.6 (`Config`). Superseded notes are marked in the evidence Jev
