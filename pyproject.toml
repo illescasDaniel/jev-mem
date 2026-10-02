@@ -1,0 +1,28 @@
+[project]
+name = "jevmem"
+version = "0.1.0"
+description = "System-One agent memory (Jev-Mem) for Claude Code and custom agents"
+readme = "README.md"
+authors = [
+    { name = "Daniel Illescas Romero", email = "illescas.daniel@protonmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=2",
+    "numpy>=2.5.3",
+    "python-dotenv>=1.2.4",
+    "typesafe-sdk>=0.7.2",
+]
+
+[project.scripts]
+jevmem = "jevmem.cli:main"
+jevmem-mcp = "jevmem.mcp_server:main"
+
+[build-system]
+requires = ["uv_build>=0.12.20,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

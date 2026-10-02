@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "jev": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "set -a; . \"$CLAUDE_PROJECT_DIR/.env\"; exec npx -y @jkudish/jev-mcp"
+      ]
+    },
+    "jevmem": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        ".",
+        "jevmem-mcp"
+      ],
+      "env": {
+        "JEVMEM_ENV_FILE": ".env",
+        "JEVMEM_SCOPE": "project:jev-things"
+      }
+    }
+  }
+}
