@@ -63,7 +63,8 @@ def user_prompt(svc: Service, payload: dict) -> str | None:
         return None
     ctx = None
     if a["needs_memory"].p >= NEEDS_MEMORY:
-        r = svc.retriever.recall(prompt, [scope], 5)
+        # per-prompt recall pays Jev latency on every prompt: lite first, full only when it finds nothing / looks multi-hop
+        r = svc.retriever.recall(prompt, [scope], 5, mode=None if os.environ.get("JEVMEM_RECALL_MODE") else "auto")
         if r.evidence and not r.degraded:
             ctx = _fmt([(e.content, e.timestamp) for e in r.evidence])
             if r.sufficient is False:

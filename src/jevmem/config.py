@@ -16,6 +16,11 @@ class Config:
     max_depth: int = 8
     beam_width: int = 10                 # W
     top_k: int = 8                       # K handed to System Two
+    recall_mode: str = "full"            # "full" (route/expand/stop), "lite" (vector top-N + one relevance filter)
+                                         # or "auto" (lite first, escalate to full: nothing found or looks multi-hop)
+    escalate_multi_hop: float = 0.60     # auto mode: P(multi-hop) at/above this escalates lite -> full
+    escalate_temporal: float = 0.80      # auto mode: same for P(needs time relations); lite has no temporal graph
+    lite_candidates: int = 20            # vector candidates the lite filter judges (one Jev call)
     # stop rule: sufficient >= x, missing < y, contradiction < z. The paper's 0.95/0.15 did not fit our question
     # wording; these come from `jevmem eval` (clear gap: unanswerable <=0.24 sufficient, answerable >=0.51)
     sufficient: float = 0.50

@@ -38,11 +38,14 @@ def memory_write(content: str, scope: str | None = None, entities: list[str] | N
 
 
 @mcp.tool()
-def memory_recall(query: str, scope: str | None = None, max_items: int = 8) -> dict:
+def memory_recall(query: str, scope: str | None = None, max_items: int = 8, mode: str | None = None) -> dict:
     """Adaptive recall. Check `sufficient`/`missing`: if sufficient is false, the memory may lack the answer,
-    so verify in code/docs rather than assuming. Searches `scope` plus global."""
+    so verify in code/docs rather than assuming. Searches `scope` plus global.
+    mode: "full" (default; multi-hop, abstains) or "lite" (vector top-20 + one Jev relevance filter: ~4x cheaper,
+    no multi-hop and `sufficient` is null, so it cannot tell you the memory lacks an answer) or "auto" (lite first,
+    escalates to full when nothing is found or the question looks multi-hop; `stop_reason` says which ran)."""
     r = svc().retriever.recall(query, [_scope(scope)] if (scope or os.environ.get("JEVMEM_SCOPE")) else None,
-                               max_items)
+                               max_items, mode)
     return {"evidence": [{"id": e.id, "content": e.content, "timestamp": e.timestamp, "scope": e.scope,
                           "score": round(e.score, 2)} for e in r.evidence],
             "sufficient": r.sufficient, "missing": r.missing, "degraded": r.degraded,

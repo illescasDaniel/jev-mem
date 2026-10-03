@@ -9,7 +9,6 @@ from dataclasses import dataclass, field, replace
 from statistics import mean
 
 from .config import Config
-from .decide import Judge
 from .retrieve import Retriever
 from .service import Service
 
@@ -53,8 +52,8 @@ def build(svc: Service, data: dict) -> dict[str, int]:
 def evaluate(svc: Service, data: dict, ids: dict[str, int], k: int = 5) -> dict[str, list[Row]]:
     scopes = [data["scope"], "global"]
     ret: Retriever = svc.retriever
-    out: dict[str, list[Row]] = {"vector": [], "hybrid": [], "hybrid@3": [], "vector+jev": [], "jevmem-flat": [], "jevmem": []}
-    judge = Judge(svc.decider)
+    out: dict[str, list[Row]] = {"vector": [], "hybrid": [], "hybrid@3": [], "jevmem-lite": [], "jevmem-flat": [], "jevmem": []}
+    lite = Retriever(svc.store, svc.decider, replace(svc.cfg, recall_mode="lite"))
     flat = Retriever(svc.store, svc.decider, replace(svc.cfg, max_depth=0))
     text = lambda i: svc.store.get(i).content
     for item in data["questions"]:
@@ -64,20 +63,28 @@ def evaluate(svc: Service, data: dict, ids: dict[str, int], k: int = 5) -> dict[
             got = ([i for i, _ in svc.store.vector_search(q, scopes, kk)] if name == "vector"
                    else [i for i, _ in ret._anchors(q, scopes, set())[:kk]])
             out[name].append(Row(q, item["kind"], gold, got, sum(len(text(i)) for i in got), time.time() - t))
-        # "any vector DB + Jev as a filter": top-20 by vector, keep what Jev judges relevant (no graph, routing or stop rule)
-        t, c0, i0 = time.time(), svc.decider.calls, getattr(svc.decider, "input_tokens", 0)
-        cand = [i for i, _ in svc.store.vector_search(q, scopes, 20)]
-        keep = {x for x, _ in judge.filter_relevant(q, [text(i) for i in cand], svc.cfg.min_relevance)}
-        got = [i for i in cand if text(i) in keep][:k]
-        out["vector+jev"].append(Row(q, item["kind"], gold, got, sum(len(text(i)) for i in got), time.time() - t,
-                                     svc.decider.calls - c0, tokens=getattr(svc.decider, "input_tokens", 0) - i0))
-        for name, rt in (("jevmem-flat", flat), ("jevmem", ret)):
+        for name, rt in (("jevmem-lite", lite), ("jevmem-flat", flat), ("jevmem", ret)):
             t, c0, i0 = time.time(), svc.decider.calls, getattr(svc.decider, 'input_tokens', 0)
             r = rt.recall(q, [data["scope"]], k)
             got = [e.id for e in r.evidence]
             out[name].append(Row(q, item["kind"], gold, got, sum(len(e.content) for e in r.evidence),
-                                 time.time() - t, svc.decider.calls - c0, r.assess, r.sufficient,
+                                 time.time() - t, svc.decider.calls - c0, r.assess or r.routing, r.sufficient,
                                  getattr(svc.decider, 'input_tokens', 0) - i0))
+    out["jevmem-auto"] = auto_rows(out["jevmem-lite"], out["jevmem"], svc.cfg.escalate_multi_hop, svc.cfg.escalate_temporal)
+    return out
+
+
+def auto_rows(lite: list[Row], full: list[Row], threshold: float, temporal: float | None = None) -> list[Row]:
+    """`recall_mode="auto"` replayed from the lite and full runs (no extra Jev calls): keep the lite answer unless it
+    found nothing or P(multi-hop) / P(temporal) >= threshold, then use the full answer and pay for both."""
+    out = []
+    for lt, fu in zip(lite, full):
+        if (lt.returned and lt.assess.get("multi_hop", 0.0) < threshold
+                and lt.assess.get("temporal", 0.0) < (threshold if temporal is None else temporal)):
+            out.append(lt)
+        else:
+            out.append(Row(fu.q, fu.kind, fu.gold, fu.returned, fu.chars, lt.latency + fu.latency, lt.calls + fu.calls,
+                           fu.assess, fu.sufficient, lt.tokens + fu.tokens))
     return out
 
 

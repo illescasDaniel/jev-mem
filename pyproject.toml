@@ -3,6 +3,9 @@ name = "jevmem"
 version = "0.1.0"
 description = "System-One agent memory (Jev-Mem) for Claude Code and custom agents"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = ["Development Status :: 4 - Beta"]
 authors = [
     { name = "Daniel Illescas Romero", email = "illescas.daniel@protonmail.com" }
 ]
@@ -23,6 +26,9 @@ embed = [
     "fastembed>=0.8.1",
 ]
 index = [
+    "lancedb>=0.39.0",
+    "pgvector>=0.5.0",
+    "psycopg[binary]>=3.3.6",
     "qdrant-client>=1.19.1",
     "sqlite-vec>=0.1.9",
 ]
@@ -33,5 +39,6 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "pgserver>=0.1.4",
     "pytest>=9.1.1",
 ]

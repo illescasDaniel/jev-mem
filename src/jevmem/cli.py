@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     w = sub.add_parser("write"); w.add_argument("content"); w.add_argument("--scope", default="global")
     w.add_argument("--entity", action="append"); w.add_argument("--timestamp")
-    r = sub.add_parser("recall"); r.add_argument("query"); r.add_argument("--scope"); r.add_argument("-k", type=int, default=8)
+    r = sub.add_parser("recall"); r.add_argument("query"); r.add_argument("--scope"); r.add_argument("-k", type=int, default=8); r.add_argument("--mode", choices=["full", "lite", "auto"])
     l = sub.add_parser("list"); l.add_argument("--scope")
     sub.add_parser("stats"); sub.add_parser("reindex"); sub.add_parser("flush"); sub.add_parser("consolidate"); sub.add_parser("pending")
     e = sub.add_parser("eval"); e.add_argument("--data", default="evals/orbit.json"); e.add_argument("-k", type=int, default=5); e.add_argument("--json"); e.add_argument("--embedder", help="hash | fastembed[:model]")
@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> None:
         print(json.dumps({"node_id": res.node_id, "rejected": res.rejected, "reason": res.reason,
                           "edges": res.edges}, indent=2))
     elif a.cmd == "recall":
-        res = svc.retriever.recall(a.query, svc.scopes(a.scope), a.k)
+        res = svc.retriever.recall(a.query, svc.scopes(a.scope), a.k, a.mode)
         for e in res.evidence:
             print(f"[{e.id}] {e.score:.2f} ({e.scope}) {e.content}")
         print(f"-- sufficient={res.sufficient} stop={res.stop_reason} jev_calls={res.jev_calls} degraded={res.degraded}")

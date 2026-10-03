@@ -151,3 +151,18 @@ def anchor_questions(n: int) -> dict[str, Question]:
     return {f"anchor_{i}_relevance": NoulQ(
         f"Does `candidates[{i}].content` contain a fact needed to answer `query`? true: direct answer evidence or "
         "a necessary intermediate fact. false: only topic overlap or unrelated content.") for i in range(n)}
+
+
+def relevance_questions(n: int) -> dict[str, Question]:
+    """One relevance question per `items[i]` for the `goal` (Judge.filter_relevant and lite recall)."""
+    return {f"item_{i}": NoulQ(f"Is `items[{i}]` relevant to achieving `goal`? true: directly useful "
+                               "information or necessary context. false: only topic overlap or unrelated.")
+            for i in range(n)}
+
+
+def lite_escalation_questions() -> dict[str, Question]:
+    """Ride along in lite recall's single Jev call (free) so "auto" mode can decide whether to escalate."""
+    return {"multi_hop": NoulQ("Does answering `goal` require combining several separate facts? "
+                               "true: two or more facts must be joined. false: a single fact suffices."),
+            "temporal": NoulQ("Does answering `goal` require event dates, durations, ordering or changes over time? "
+                              "true: a time relation is needed. false: dates or ordering are incidental.")}

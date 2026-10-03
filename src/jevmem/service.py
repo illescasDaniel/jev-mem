@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -25,6 +26,8 @@ class Service:
         load_dotenv(os.environ.get("JEVMEM_ENV_FILE") or Path.home() / ".jevmem" / ".env")
         load_dotenv()
         self.cfg = config or Config()
+        if os.environ.get("JEVMEM_RECALL_MODE"):
+            self.cfg = replace(self.cfg, recall_mode=os.environ["JEVMEM_RECALL_MODE"])
         self.store = Store(path or db_path())
         self.decider = decider or JevDecider()
         self.writer = Writer(self.store, self.decider, self.cfg)

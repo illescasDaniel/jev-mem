@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .decider import ChoiceQ, Decider, NoulQ
-from .questions import stop_questions
+from .questions import relevance_questions, stop_questions
 
 MAX_ITEM_CHARS = 1500   # context rot: keep what Jev sees small
 UNCLEAR = "unclear"
@@ -56,10 +56,8 @@ class Judge:
         kept: list[tuple[str, float]] = []
         for s in range(0, len(items), chunk):
             part = items[s:s + chunk]
-            qs = {f"item_{i}": NoulQ(f"Is `items[{i}]` relevant to achieving `goal`? true: directly useful "
-                                     "information or necessary context. false: only topic overlap or unrelated.")
-                  for i in range(len(part))}
-            a = self.decider.ask({"goal": goal, "items": [{"content": x[:MAX_ITEM_CHARS]} for x in part]}, qs)
+            a = self.decider.ask({"goal": goal, "items": [{"content": x[:MAX_ITEM_CHARS]} for x in part]},
+                                 relevance_questions(len(part)))
             kept += [(x, a[f"item_{i}"].p) for i, x in enumerate(part) if a[f"item_{i}"].p >= threshold]
         return sorted(kept, key=lambda t: -t[1])
 

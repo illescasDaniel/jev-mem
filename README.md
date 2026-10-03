@@ -6,7 +6,7 @@ decision (typing, relations, routing, scoring, stopping) as batched typed
 probabilities; the host agent (Claude) is System Two and does all writing/synthesis.
 jevmem itself never calls a generative LLM.
 
-> Status: working prototype. Core library, MCP server/CLI, skill, hooks, Python helpers, consolidation, eval harness
+> Status: beta (v0.1.0). Core library, MCP server/CLI, skill, hooks, Python helpers, consolidation, eval harness
 > and a pluggable vector index are in. New to the ideas? Read [docs/concepts.md](docs/concepts.md).
 
 ## Installation
@@ -51,12 +51,13 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 |---|---|---|
 | `TYPESAFE_API_KEY` | Jev key (via `JEVMEM_ENV_FILE`, `~/.jevmem/.env` or `.env`) | required |
 | `JEVMEM_DB` | SQLite file | `~/.jevmem/memory.db` |
-| `JEVMEM_INDEX` | vector index: `auto`, `matrix`, `sqlite-vec`, `qdrant[:path-or-url]` | `auto` |
+| `JEVMEM_INDEX` | vector index: `auto`, `matrix`, `sqlite-vec`, `qdrant[:path-or-url]`, `lancedb[:path]`, `pgvector:<dsn>` (tuning env vars in [docs/evaluation.md](docs/evaluation.md)) | `auto` |
+| `JEVMEM_RECALL_MODE` | `full` (route, graph expansion, stop rule), `lite` (vector top-20 + one Jev relevance filter) or `auto` (lite first; escalate to full when it finds nothing or the question looks multi-hop/temporal) | `full` (hooks: `auto`) |
 | `JEVMEM_SCOPE` | default scope for write/recall | `global` (hooks: `project:<folder name>`) |
 | `JEVMEM_AUTOCAPTURE` | auto-store strongly stated preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
 
 Tools: `memory_write`, `memory_recall`, `memory_list`, `memory_forget`, `memory_stats`,
-`memory_flush_pending`, `memory_consolidate`, `memory_pending_synthesis`, `memory_resolve`, `memory_dismiss`. CLI: `uv run jevmem {write,recall,list,stats,flush,consolidate,pending,reindex,import-claude-memory,eval,eval-injection}`.
+`memory_flush_pending`, `memory_consolidate`, `memory_pending_synthesis`, `memory_resolve`, `memory_dismiss`. CLI: `uv run jevmem {write,recall [--mode lite],list,stats,flush,consolidate,pending,reindex,import-claude-memory,eval,eval-injection}`.
 
 Write memories as one literal fact with explicit entities and **absolute dates**
 ("on 2024-05-15", not "yesterday"): Jev reads literally and does not do date arithmetic.
@@ -86,15 +87,37 @@ Nothing is deleted or generated. Results only annotate the graph:
 tables, datasets (including a LoCoMo slice) and caveats are in [docs/evaluation.md](docs/evaluation.md).
 On the held-out set with real embeddings (`bge-small`): recall 0.99 vs 0.93 for hybrid top-5 while injecting about a
 quarter of the context; on a LoCoMo slice 0.83 vs 0.67 (vector) with multi-hop 0.70 vs 0.20; unanswerable questions
-are abstained on 16/16. One Jev relevance filter over a vector top-20 already gets most of the gain for ~$0.0001.
-These are small datasets, so treat them as indications, not benchmarks.
+are abstained on 16/16. Across 9 more LoCoMo conversations (272 questions, never used for tuning) full recall scores 0.89 vs 0.70 for vector
+top-5 and `lite` mode (one Jev relevance filter over a vector top-20, `JEVMEM_RECALL_MODE=lite`) scores 0.84 for about
+a fifth of the Jev tokens; on 57 real commit-history notes full recall scores 1.00 vs 0.90. These are small datasets,
+so treat them as indications, not benchmarks.
+
+**Which recall mode?** `lite`: 1 Jev call, ~0.25 s, no multi-hop and no `sufficient` flag (it cannot say "memory
+does not know"). `full`: ~6 Jev calls, ~1.4 s, better on multi-hop/temporal/inference and abstains on 94% of
+unanswerable questions. `auto` runs lite and escalates to full when lite finds nothing or the same Jev call says the
+question is multi-hop or time-related (`Config.escalate_multi_hop` 0.6 / `escalate_temporal` 0.8): it matched full recall
+on every set we have, at about 15-25% fewer Jev tokens and 0.8-1.1 s instead of 1.3-1.5 s, because roughly half the
+questions escalate. The `UserPromptSubmit` hook uses `auto` (override with `JEVMEM_RECALL_MODE`); the MCP tool
+defaults to `full` so an explicit recall can trust "not found" (`mode="auto"` is available).
 
 ## Choosing embeddings and a vector index
 - Embeddings: default `hash` is dependency-free but weak; `uv sync --extra embed` + `JEVMEM_EMBEDDER=fastembed`
   uses a local model (call `Store.reembed()` after switching).
-- Index: `JEVMEM_INDEX=auto|matrix|sqlite-vec|qdrant[:path-or-url]` (`uv sync --extra index` for the optional ones).
-  SQLite stays the source of truth, the index is a rebuildable copy (`jevmem reindex`). `auto` uses an in-RAM exact
-  matrix and moves to sqlite-vec past 100k notes. See [docs/concepts.md](docs/concepts.md) for what these are.
+- Index: set `JEVMEM_INDEX` (`uv sync --extra index` for the optional backends). The default `auto` is right for almost
+  everyone: an in-RAM exact matrix, switching to sqlite-vec past 100k notes. Change it only for the cases below.
+  SQLite stays the source of truth and the index is a rebuildable copy, so switching is safe: set the variable and
+  run `jevmem reindex`.
+
+  | You have | Set |
+  |---|---|
+  | one person or project, up to ~100k notes | nothing (`auto` uses `matrix`) |
+  | up to ~1M notes on one machine | nothing (`auto` moves to `sqlite-vec`) |
+  | several machines sharing one memory, or more than ~1M notes | `JEVMEM_INDEX=qdrant:http://host:6333` (add `JEVMEM_QDRANT_GRPC=1` for bulk loads) |
+  | a Postgres you already run | `JEVMEM_INDEX=pgvector:postgresql://user:pass@host/db` (pgvector 0.8+ recommended) |
+  | LanceDB already in your stack | `JEVMEM_INDEX=lancedb:/path/to/dir` |
+
+  Benchmarks at 1M notes and tuning variables are in [docs/evaluation.md](docs/evaluation.md); concepts in
+  [docs/concepts.md](docs/concepts.md).
 
 The paper's stop thresholds (sufficient >= 0.95, missing < 0.15) did not fit our wording; defaults are now
 sufficient >= 0.5, missing < 0.6, contradiction < 0.6 (`Config`). Superseded notes are marked in the evidence Jev
@@ -123,7 +146,7 @@ src/jevmem/
   decider.py    Decider protocol, JevDecider (typesafe-sdk), FakeDecider
   questions.py  every Noul/Choice question template
   store.py      SQLite nodes/edges + FTS5 + embeddings
-  vectorindex.py pluggable vector search (matrix, sqlite-vec, qdrant)
+  vectorindex.py pluggable vector search (matrix, sqlite-vec, qdrant, lancedb, pgvector)
   write.py      screen -> type -> candidates -> relations
   retrieve.py   route -> anchors -> budgeted expansion -> stop
   consolidate.py periodic redundancy/contradiction/obsolescence pass + synthesis queue
@@ -136,13 +159,14 @@ src/jevmem/
 ```
 
 ## Ideas to try next
-- **Qdrant server (true HNSW).** The `qdrant:http://host:6333` adapter exists but was only tested in local mode,
-  which is exact and slow. Run a Qdrant server (e.g. via Docker), load 1M+ notes and measure approximate-search
-  recall and latency against `matrix`/`sqlite-vec`; useful if several machines should share one memory.
-- A "lite" recall mode: vector top-20 plus a single Jev relevance filter (about a quarter of the cost, most of the gain).
-- Held-out evaluation on more LoCoMo conversations and on real project notes; retune the sufficiency check there.
-- A `VectorIndex` for LanceDB or pgvector if a team already runs one.
+- Re-run the 1M-note index benchmark on real embeddings (it used synthetic clustered vectors) and with several machines
+  writing to one Qdrant/Postgres at once.
+- Questions written by someone other than the system's author: all our "real notes" sets use questions we wrote.
+- A learned (not prompted) escalation and sufficiency signal; both prompted probabilities plateau at ~0.88 accuracy.
 
 ## Docs
 - [docs/concepts.md](docs/concepts.md): Jev, memory decisions, storage, embeddings, vector indexes and databases.
 - [docs/evaluation.md](docs/evaluation.md): methodology, datasets, results, caveats.
+
+## License
+MIT, see [LICENSE](LICENSE).

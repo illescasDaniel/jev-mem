@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .config import Config
+from .decide import MAX_ITEM_CHARS
 from .decider import Decider, DeciderUnavailable
-from .questions import anchor_questions, candidate_questions, needs_memory_questions, routing_questions, stop_questions
+from .questions import anchor_questions, lite_escalation_questions, relevance_questions, candidate_questions, needs_memory_questions, routing_questions, stop_questions
 from .store import EDGE_KINDS, Store
 from .write import UNSCREENED, iso
 
@@ -61,7 +62,25 @@ class Retriever:
             return 1.0
 
     # ------------------------------------------------------------------
-    def recall(self, query: str, scopes: list[str] | None = None, k: int | None = None) -> RecallResult:
+    def recall(self, query: str, scopes: list[str] | None = None, k: int | None = None,
+               mode: str | None = None) -> RecallResult:
+        """mode "full" (default, `Config.recall_mode`): route, graph expansion, stop rule. "lite": see recall_lite."""
+        mode = mode or self.cfg.recall_mode
+        if mode == "lite":
+            return self.recall_lite(query, scopes, k)
+        if mode == "auto":
+            lite = self.recall_lite(query, scopes, k)
+            hop, tmp = lite.routing.get("multi_hop", 0.0), lite.routing.get("temporal", 0.0)
+            if lite.degraded or (lite.evidence and hop < self.cfg.escalate_multi_hop
+                                 and tmp < self.cfg.escalate_temporal):
+                lite.stop_reason = "lite"
+                return lite
+            why = ("nothing_found" if not lite.evidence else "multi_hop" if hop >= self.cfg.escalate_multi_hop
+                   else "temporal")
+            res = self.recall(query, scopes, k, mode="full")
+            res.jev_calls += lite.jev_calls
+            res.stop_reason = f"escalated:{why}>{res.stop_reason}"
+            return res
         cfg, k = self.cfg, k or self.cfg.top_k
         scopes = scopes and list(dict.fromkeys([*scopes, "global"]))
         hidden = set(self.store.pending(UNSCREENED))
@@ -163,6 +182,38 @@ class Retriever:
         except DeciderUnavailable:
             res.degraded = True
             return finish("degraded")
+
+    def recall_lite(self, query: str, scopes: list[str] | None = None, k: int | None = None) -> RecallResult:
+        """Vector top-N, then ONE batched Jev relevance filter. No routing, graph, multi-hop or sufficiency check
+        (`sufficient` stays None). Superseded notes rank lower. Degrades to plain vector top-k if Jev is down."""
+        cfg, k = self.cfg, k or self.cfg.top_k
+        scopes = scopes and list(dict.fromkeys([*scopes, "global"]))
+        hidden = set(self.store.pending(UNSCREENED))
+        cand = self.store.vector_search(query, scopes, cfg.lite_candidates, hidden)
+        res = RecallResult([], stop_reason="lite")
+        if not cand:
+            return res
+        judge, calls, hop, tmp = [], 0, 0.0, 0.0
+        try:
+            for start in range(0, len(cand), cfg.score_chunk * 3):      # 36 per call: one call at the default N=20
+                chunk = cand[start:start + cfg.score_chunk * 3]
+                a = self.decider.ask(
+                    {"goal": query, "items": [{"content": self.store.get(i).content[:MAX_ITEM_CHARS]} for i, _ in chunk]},
+                    {**relevance_questions(len(chunk)), **lite_escalation_questions()}); calls += 1
+                hop, tmp = max(hop, a["multi_hop"].p), max(tmp, a["temporal"].p)
+                judge += [(i, sim, a[f"item_{j}"].p) for j, (i, sim) in enumerate(chunk)]
+        except DeciderUnavailable:
+            res.degraded, res.stop_reason = True, "degraded"
+            judge = [(i, sim, sim) for i, sim in cand]          # no judgement: rank by similarity alone
+            rel_min = -1.0
+        else:
+            rel_min = cfg.min_relevance
+        old = self.store.flagged("superseded_by", "merged_into")
+        scored = [(i, rel * (cfg.superseded_penalty if i in old else 1.0)) for i, _, rel in judge if rel >= rel_min]
+        top = sorted(scored, key=lambda t: -t[1])[:k]
+        res.evidence = [self._ev(i, s, "vector") for i, s in top]
+        res.jev_calls, res.routing = calls, {"multi_hop": hop, "temporal": tmp}
+        return res
 
     # ------------------------------------------------------------------
     def _vec(self, query, scopes, hidden):

@@ -22,7 +22,7 @@ Claude (writes notes, reads answers)          <- System Two: slow, expensive, ge
 jevmem
    |-- Jev decides: type, injection, relations, routing, relevance, stop    <- System One: fast, cheap
    |-- SQLite file: notes, graph edges, full-text index, embeddings (truth)
-   '-- vector index (matrix | sqlite-vec | qdrant): derived copy for similarity search
+   '-- vector index (matrix | sqlite-vec | qdrant | lancedb | pgvector): derived copy for similarity search
 ```
 
 ## 2. Jev and "System One"
@@ -152,13 +152,15 @@ graph), which is independent of where vectors live. So:
   (`jevmem reindex`); a persistent index that is missing rows is rebuilt automatically on open. Switching
   indexes never loses memory.
 - Only `Store.vector_search` touches vectors (through the `VectorIndex` protocol in `vectorindex.py`), so adding
-  a backend means implementing four methods: `add`, `remove`, `search`, `rebuild`.
+  a backend means implementing a handful of methods: `add`, `remove`, `search`, `rebuild`.
 
 | `JEVMEM_INDEX` | what it is | measured at 100k notes x 384 numbers (top-10 in one scope) |
 |---|---|---|
 | `matrix` | exact numpy matrix in RAM, loaded lazily, incremental adds | 4.5 ms, ~150 MB RAM |
 | `sqlite-vec` | exact search inside the same SQLite file, partitioned by scope | 12 ms, almost no RAM |
-| `qdrant[:path\|url]` | external vector DB (local mode is exact and in-process) | 700 ms local mode; HNSW needs a server |
+| `qdrant[:path\|url]` | external vector DB (local mode is exact and in-process) | 700 ms local mode; server HNSW at 1M: 3.5 ms, recall 0.97-0.99 |
+| `lancedb[:path]` | embedded columnar store on disk; exact scan, IVF-PQ index built from 1M notes | 60 ms at 100k; 1M: 400 ms exact, 67 ms IVF-PQ |
+| `pgvector:<dsn>` | Postgres + pgvector HNSW, for a team that already runs Postgres | 1M: 3 ms, recall 0.97 (needs `ef_construction=200`, `ef_search=400`) |
 | `auto` (default) | `matrix`, switching to `sqlite-vec` past 100k notes | |
 
 Keyword search (FTS5/BM25) is separate from the vector index and always lives in SQLite. Results from both are
