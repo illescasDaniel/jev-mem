@@ -77,9 +77,11 @@ def routing_questions() -> dict[str, Question]:
 
 def needs_memory_questions() -> dict[str, Question]:
     return {
-        "needs_memory": NoulQ("Could `query` depend on earlier decisions, preferences, conventions or past events "
-                              "that are not in the query itself? true: prior knowledge would likely help. "
-                              "false: self-contained or generic."),
+        "needs_memory": NoulQ("Does `query` concern a specific topic of this project (a component, file, tool, "
+                              "convention, past decision, bug or workflow) about which a stored note could exist? "
+                              "true: it names or clearly implies such a project-specific topic. false: "
+                              "acknowledgements, confirmations, 'continue'/'go ahead' style replies, generic "
+                              "programming questions, or requests that refer only to the current conversation."),
     }
 
 

@@ -7,6 +7,7 @@ from datetime import datetime
 from .config import Config
 from .decider import Decider, DeciderUnavailable
 from .questions import MEMORY_TYPES, relation_questions, typing_questions
+from .screen import secret_kind
 from .store import Store
 
 UNSCREENED = "unscreened"   # hidden from retrieval until screened
@@ -38,10 +39,17 @@ class Writer:
         self.store, self.decider, self.cfg = store, decider, config or Config()
 
     def write(self, content: str, scope: str = "global", entities: list[str] | None = None,
-              timestamp: float | str | None = None, source: str | None = None) -> WriteResult:
+              timestamp: float | str | None = None, source: str | None = None,
+              dedupe: bool = True) -> WriteResult:
         content = content.strip()
         if not content:
             return WriteResult(None, rejected=True, reason="empty")
+        kind = secret_kind(content)
+        if kind:
+            return WriteResult(None, rejected=True, reason=f"looks like a secret ({kind}); never store credentials")
+        dup = self._duplicate(content, scope) if dedupe else None
+        if dup is not None:
+            return WriteResult(dup, rejected=True, reason=f"duplicate of note {dup}")
         ts = parse_ts(timestamp)
         entities = entities or []
 
@@ -62,6 +70,13 @@ class Writer:
         self._relate(nid, res)
         self.store.bump_writes()
         return res
+
+    def _duplicate(self, content: str, scope: str) -> int | None:
+        """Id of an existing note in this scope with the same text or a near-identical embedding."""
+        hits = self.store.vector_search(content, [scope], 1)
+        if not hits or hits[0][1] < self.cfg.duplicate_similarity:
+            return None
+        return hits[0][0] if self.store.get(hits[0][0]) is not None else None
 
     def _relate(self, nid: int, res: WriteResult) -> None:
         node = self.store.get(nid)

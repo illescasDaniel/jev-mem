@@ -73,7 +73,7 @@ class Consolidator:
             rep.superseded += 1
         rep_ans = a["representation"]
         if (not contradiction and rep_ans.choice in ("merge", "promote")
-                and rep_ans.probs.get(rep_ans.choice, 0.0) >= th):
+                and rep_ans.probs.get(rep_ans.choice, 0.0) >= self.cfg.merge_threshold):
             if self.store.add_synth(rep_ans.choice, [new.id, old.id], rep_ans.probs[rep_ans.choice]):
                 rep.proposals += 1
         if a["link_usefulness"].p >= self.cfg.relation_threshold and not any(
@@ -90,9 +90,10 @@ class Consolidator:
                 self.store.synth_close(it["id"], "dismissed"); continue
             out.append({**it, "memories": [{"id": n.id, "content": n.content, "timestamp": iso(n.timestamp)}
                                            for n in nodes],
-                        "instruction": ("Write ONE literal fact that combines these without losing any distinct "
+                        "instruction": ("First check that the notes really state the same fact; if they are distinct facts, call "
+                                        "memory_dismiss instead. Otherwise write ONE literal fact that combines these without losing any distinct "
                                         "detail. Use absolute dates and explicit entity names.") if it["kind"] == "merge"
-                        else ("These repeated episodes suggest a stable pattern. Write ONE general, literal "
+                        else ("If these episodes do not really show one pattern, call memory_dismiss. Otherwise they suggest a stable pattern: write ONE general, literal "
                               "statement of that pattern; the episodes are kept as evidence.")})
         return out
 
@@ -104,7 +105,7 @@ class Consolidator:
         scopes = {n.scope for n in srcs}
         entities = sorted({e for n in srcs for e in n.entities})
         res = self.writer.write(text, scope or (scopes.pop() if len(scopes) == 1 else "global"),
-                                entities, source=f"consolidation:{synth_id}")
+                                entities, source=f"consolidation:{synth_id}", dedupe=False)
         if res.rejected:
             return {"ok": False, "error": res.reason}
         for n in srcs:

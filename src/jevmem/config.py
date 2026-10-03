@@ -7,6 +7,7 @@ class Config:
     relation_threshold: float = 0.60     # theta_rel
     write_candidates: int = 10           # K_w
     injection_block: float = 0.50
+    duplicate_similarity: float = 0.97   # cosine at/above which a write is rejected as a duplicate of an existing note
     activation_threshold: float = 0.30   # theta_act
     anchor_count: int = 30
     rrf_k: int = 60
@@ -37,4 +38,5 @@ class Config:
     consolidate_candidates: int = 3      # neighbours judged per new node
     consolidate_max_nodes: int = 20      # nodes per pass (= one Jev call each, ~3-5 s inline)
     consolidate_threshold: float = 0.85  # merge/promote/contradiction/obsolescence cut-off
+    merge_threshold: float = 0.95        # merge/promote proposals need more certainty: false merges cost an agent write
     superseded_penalty: float = 0.6      # score multiplier for superseded/merged notes in recall

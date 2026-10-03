@@ -22,13 +22,14 @@ def db_path() -> str:
 
 
 class Service:
-    def __init__(self, path: str | None = None, decider=None, config: Config | None = None):
+    def __init__(self, path: str | None = None, decider=None, config: Config | None = None,
+                 switch_embedder: bool = False):
         load_dotenv(os.environ.get("JEVMEM_ENV_FILE") or Path.home() / ".jevmem" / ".env")
         load_dotenv()
         self.cfg = config or Config()
         if os.environ.get("JEVMEM_RECALL_MODE"):
             self.cfg = replace(self.cfg, recall_mode=os.environ["JEVMEM_RECALL_MODE"])
-        self.store = Store(path or db_path())
+        self.store = Store(path or db_path(), switch_embedder=switch_embedder)
         self.decider = decider or JevDecider()
         self.writer = Writer(self.store, self.decider, self.cfg)
         self.retriever = Retriever(self.store, self.decider, self.cfg)

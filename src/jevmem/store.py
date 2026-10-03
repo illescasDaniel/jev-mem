@@ -25,6 +25,8 @@ class HashEmbedder:
     """Dependency-free feature-hashing embedder: fine for tests and as a fallback.
     Swap in a real model (e.g. fastembed MiniLM) for quality."""
 
+    spec = "hash"
+
     def __init__(self, dim: int = 256):
         self.dim = dim
 
@@ -45,6 +47,7 @@ class FastEmbedEmbedder:
     def __init__(self, model: str = "BAAI/bge-small-en-v1.5"):
         from fastembed import TextEmbedding
         self.model = TextEmbedding(model_name=model)
+        self.spec = f"fastembed:{model}"
 
     def embed(self, texts: list[str]) -> np.ndarray:
         v = np.array(list(self.model.embed(texts)), dtype=np.float32)
@@ -57,6 +60,13 @@ def make_embedder(spec: str | None = None) -> Embedder:
     if spec.startswith("fastembed"):
         return FastEmbedEmbedder(*spec.split(":", 1)[1:])
     return HashEmbedder()
+
+
+class EmbedderMismatch(RuntimeError):
+    """The database was built with a different embedder than the one requested."""
+
+
+_LEGACY_DIMS = {256: "hash", 384: "fastembed"}   # databases created before the embedder was recorded
 
 
 @dataclass
@@ -84,10 +94,10 @@ def tokens(text: str) -> list[str]:
 
 
 class Store:
-    def __init__(self, path: str = ":memory:", embedder: Embedder | None = None, index: str | None = None):
+    def __init__(self, path: str = ":memory:", embedder: Embedder | None = None, index: str | None = None,
+                 switch_embedder: bool = False):
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
-        self.embedder = embedder or make_embedder()
         self.path = path
         self._index_spec = index
         self.db.executescript("""
@@ -111,19 +121,42 @@ class Store:
         CREATE INDEX IF NOT EXISTS nodes_scope ON nodes(scope);
         CREATE INDEX IF NOT EXISTS nodes_ts ON nodes(ts);
         """)
+        self.embedder = embedder or self._choose_embedder(switch_embedder)
         self._backfill_entities()
         dim = int(self.embedder.embed(["dim"]).shape[1])
         self.index = make_index(self.db, dim, path, index, self.count())
         self.sync_index()
+        if self.meta_text("embedder") is None:
+            self.meta_set_text("embedder", getattr(self.embedder, "spec", "custom"))
+
+    def _choose_embedder(self, switch: bool) -> Embedder:
+        """The database remembers its embedder: use it unless the user asks for another one explicitly."""
+        stored = self.meta_text("embedder")
+        if stored is None and self.count():
+            r = self.db.execute("SELECT emb FROM nodes WHERE emb IS NOT NULL LIMIT 1").fetchone()
+            stored = _LEGACY_DIMS.get(len(r["emb"]) // 4) if r else None
+        wanted = os.environ.get("JEVMEM_EMBEDDER")
+        if not wanted:
+            return make_embedder(stored or "hash")
+        emb = make_embedder(wanted)
+        same = stored is None or stored == emb.spec or stored == wanted.split(":")[0]
+        if not same and not switch:
+            raise EmbedderMismatch(
+                f"this database was built with embedder '{stored}' but JEVMEM_EMBEDDER='{wanted}'. "
+                f"Unset JEVMEM_EMBEDDER to keep using '{stored}', or run `jevmem reembed` to switch.")
+        return emb
 
     # -- nodes ---------------------------------------------------------------
     def add_node(self, content: str, scope: str = "global", timestamp: float | None = None,
                  entities: list[str] | None = None, source: str | None = None) -> int:
         emb = self.embedder.embed([content])[0].astype(np.float32)
-        cur = self.db.execute(
-            "INSERT INTO nodes(content,scope,ts,entities,source,emb,created) VALUES(?,?,?,?,?,?,?)",
-            (content, scope, timestamp, json.dumps(entities or []), source, emb.tobytes(), time.time()))
-        nid = cur.lastrowid
+        # never reuse the id of a deleted note: consolidation watermarks and edges refer to ids
+        top = self.db.execute("SELECT COALESCE(MAX(id), 0) FROM nodes").fetchone()[0]
+        nid = max(top, self.meta_get("max_node_id")) + 1
+        self.db.execute(
+            "INSERT INTO nodes(id,content,scope,ts,entities,source,emb,created) VALUES(?,?,?,?,?,?,?,?)",
+            (nid, content, scope, timestamp, json.dumps(entities or []), source, emb.tobytes(), time.time()))
+        self.meta_set("max_node_id", nid)
         self.db.execute("INSERT INTO fts(rowid, content) VALUES(?,?)", (nid, content))
         self._index_entities(nid, entities or [])
         self.db.commit()
@@ -160,6 +193,7 @@ class Store:
             embs = self.embedder.embed([r["content"] for r in chunk]).astype(np.float32)
             self.db.executemany("UPDATE nodes SET emb=? WHERE id=?", [(e.tobytes(), r["id"]) for e, r in zip(embs, chunk)])
         self.db.commit()
+        self.meta_set_text("embedder", getattr(self.embedder, "spec", "custom"))
         self.sync_index(force=True)
         return len(rows)
 
@@ -174,6 +208,9 @@ class Store:
         self.db.execute("DELETE FROM edges WHERE src=? OR dst=?", (nid, nid))
         self.db.execute("DELETE FROM pending WHERE node_id=?", (nid,))
         self.db.execute("DELETE FROM flags WHERE node_id=? OR other_id=?", (nid, nid))
+        for it in self.synth_items():       # a proposal that mentions a deleted note is void
+            if nid in it["node_ids"]:
+                self.db.execute("UPDATE synth SET status='dismissed' WHERE id=?", (it["id"],))
         self.db.commit()
         self.index.remove(nid)
 
@@ -295,6 +332,14 @@ class Store:
     def meta_get(self, key: str, default: int = 0) -> int:
         r = self.db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
         return int(r[0]) if r else default
+
+    def meta_text(self, key: str) -> str | None:
+        r = self.db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return r["value"] if r else None
+
+    def meta_set_text(self, key: str, value: str) -> None:
+        self.db.execute("INSERT OR REPLACE INTO meta VALUES(?,?)", (key, value))
+        self.db.commit()
 
     def meta_set(self, key: str, value: int) -> None:
         self.db.execute("INSERT OR REPLACE INTO meta VALUES(?,?)", (key, str(value)))

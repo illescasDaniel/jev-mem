@@ -57,7 +57,7 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 | `JEVMEM_AUTOCAPTURE` | auto-store strongly stated preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
 
 Tools: `memory_write`, `memory_recall`, `memory_list`, `memory_forget`, `memory_stats`,
-`memory_flush_pending`, `memory_consolidate`, `memory_pending_synthesis`, `memory_resolve`, `memory_dismiss`. CLI: `uv run jevmem {write,recall [--mode lite],list,stats,flush,consolidate,pending,reindex,import-claude-memory,eval,eval-injection}`.
+`memory_flush_pending`, `memory_consolidate`, `memory_pending_synthesis`, `memory_resolve`, `memory_dismiss`. CLI: `uv run jevmem {write,recall [--mode lite],list,forget,stats,flush,consolidate,pending,resolve,dismiss,reindex,reembed,import-markdown,import-claude-memory,eval,eval-injection}`. The CLI uses `JEVMEM_SCOPE` as its default scope, like the MCP server and hooks.
 
 Write memories as one literal fact with explicit entities and **absolute dates**
 ("on 2024-05-15", not "yesterday"): Jev reads literally and does not do date arithmetic.
@@ -71,7 +71,30 @@ This repo ships both for itself:
   - `UserPromptSubmit`: one Jev call decides whether the prompt needs memory; only then does recall run
     and inject notes. A strongly stated preference/decision/convention in the prompt is auto-stored
     (disable with `JEVMEM_AUTOCAPTURE=0`).
-- Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`.
+- Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`, or from rule files such as
+  `AGENTS.md`/`CLAUDE.md` with `uv run jevmem import-markdown AGENTS.md --scope project:<name>` (one note per bullet or
+  paragraph; for long decision logs it is better to have your agent write atomic, dated notes).
+- Hook problems (wrong embedder, bad key) are reported to you as a `systemMessage`, not swallowed; transient Jev
+  outages still just skip injection.
+
+## Safety and housekeeping
+- Writes are screened before storage: credentials (private keys, API tokens, `password is ...`, connection strings
+  with passwords) are rejected, near-duplicates (cosine >= 0.97 in the same scope) are rejected, and the Jev injection
+  screen blocks instructions aimed at the agent. Auto-captured prompts are additionally skipped when they contain
+  relative dates ("yesterday"), remote-execution commands (`curl | sh`) or secrets.
+- A database records the embedder it was built with and keeps using it. Asking for a different one with
+  `JEVMEM_EMBEDDER` fails loudly; switch deliberately with `jevmem reembed`.
+- Treat recalled notes as data. They are injected under a header that says so, but a note is only as trustworthy as
+  whoever could write it: do not share a writable memory with people you would not let edit your `AGENTS.md`.
+
+## Known limitations
+- Consolidation finds many contradictions (for example tabs vs spaces) but misses factual ones that need domain
+  knowledge, and often misses that a new note supersedes an old one. Stale facts persist until someone forgets them;
+  prefer writing the newer fact with a date and forgetting the old note (`jevmem forget <id>`).
+- `lite`/`auto` recall cannot say "memory does not know"; use `full` (the MCP default) when that matters.
+- The SessionStart hook picks conventions/gotchas/decisions by classifier confidence, not importance: keep the few
+  rules that must always hold in your project's `CLAUDE.md`/`AGENTS.md` too. jevmem complements a git-tracked
+  markdown memory bank (reviewable, per branch); it does not replace it.
 
 ## Consolidation
 Every 20 successful writes (inline, ~3-5 s, via `Service.write` / `memory_write`) Jev compares recent notes with
