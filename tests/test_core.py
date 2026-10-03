@@ -124,3 +124,20 @@ def test_vector_ties_rank_by_note_id_and_are_stable_under_float_noise():
     q = s.embedder.embed(["identical note text"])[0]
     noisy = q + np.float32(1e-8)
     assert [i for i, _ in s.index.search(noisy, ["x"], 4)] == ids[:4]
+
+
+def test_scopes_are_case_insensitive_on_write_and_recall(tmp_path):
+    s, d, w, r = build()
+    w.write("The bicycle broke on the hill", "project:SpaceMaker")
+    assert [n.scope for n in s.nodes()] == ["project:spacemaker"]
+    assert r.recall("bicycle broke", ["Project:SPACEMAKER"]).evidence
+    assert s.lexical_search("bicycle", [" PROJECT:spacemaker "], 5)
+
+
+def test_existing_mixed_case_scopes_are_migrated_on_open(tmp_path):
+    path = str(tmp_path / "m.db")
+    s = Store(path)
+    s.add_node("note", "project:ok")
+    s.db.execute("UPDATE nodes SET scope='project:Old'"); s.db.commit()
+    s.db.close()
+    assert [n.scope for n in Store(path).nodes()] == ["project:old"]

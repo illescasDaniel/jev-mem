@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 - 2026-10-03
+
+- Scopes are case-insensitive: `project:SpaceMaker` and `project:spacemaker` are the same scope. They are stored
+  lowercased and matched lowercased on write, recall and list; existing databases are migrated when opened.
+
 ## 0.2.0 - 2026-10-03
 
 Breaking (pre-1.0), for new databases only: an existing database keeps the embedder it was built with.

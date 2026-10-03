@@ -11,7 +11,7 @@ from .config import Config
 from .decide import MAX_ITEM_CHARS
 from .decider import Decider, DeciderUnavailable
 from .questions import anchor_questions, lite_escalation_questions, relevance_questions, candidate_questions, needs_memory_questions, routing_questions, stop_questions
-from .store import EDGE_KINDS, Store
+from .store import EDGE_KINDS, Store, norm_scopes
 from .write import UNSCREENED, iso
 
 DAY = 86400.0
@@ -84,7 +84,7 @@ class Retriever:
         """mode (default `Config.recall_mode`, "auto"): "full" = route, graph expansion, stop rule; "lite": see recall_lite;
         "auto" = lite, rerun in full when `escalation` says so. Similar notes returned together are queued for the
         next consolidation pass (no Jev call here)."""
-        res = self._recall(query, scopes, k, mode)
+        res = self._recall(query, norm_scopes(scopes), k, mode)
         self._queue_coretrieved(res)
         return res
 

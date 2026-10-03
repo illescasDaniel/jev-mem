@@ -65,6 +65,7 @@ class Service:
         return res, rep
 
     def scopes(self, scope: str | None) -> list[str] | None:
+        scope = scope and scope.strip().lower()
         return [scope] if scope and scope != "all" else None
 
     def stats(self) -> dict:

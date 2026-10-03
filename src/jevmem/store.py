@@ -111,6 +111,15 @@ def tokens(text: str) -> list[str]:
     return _TOKEN.findall(text.lower())
 
 
+def norm_scope(scope: str) -> str:
+    """Scopes are case-insensitive labels ('project:SpaceMaker' is 'project:spacemaker'): stored and matched lowercased."""
+    return scope.strip().lower()
+
+
+def norm_scopes(scopes: list[str] | None) -> list[str] | None:
+    return list(dict.fromkeys(map(norm_scope, scopes))) if scopes else scopes
+
+
 class Store:
     def __init__(self, path: str = ":memory:", embedder: Embedder | None = None, index: str | None = None,
                  switch_embedder: bool = False):
@@ -146,11 +155,14 @@ class Store:
         for col in ("git_branch", "git_commit"):          # databases made before notes recorded where they were written
             if col not in cols:
                 self.db.execute(f"ALTER TABLE nodes ADD COLUMN {col} TEXT")
+        # databases made before scopes were case-insensitive
+        if self.db.execute("SELECT 1 FROM nodes WHERE scope != lower(trim(scope)) LIMIT 1").fetchone():
+            self.db.execute("UPDATE nodes SET scope = lower(trim(scope))"); self.db.commit(); self._scopes_migrated = True
         self.embedder = embedder or self._choose_embedder(switch_embedder)
         self._backfill_entities()
         dim = int(self.embedder.embed(["dim"]).shape[1])
         self.index = make_index(self.db, dim, path, index, self.count())
-        self.sync_index()
+        self.sync_index(force=getattr(self, "_scopes_migrated", False))
         if self.meta_text("embedder") is None:
             self.meta_set_text("embedder", getattr(self.embedder, "spec", "custom"))
 
@@ -175,6 +187,7 @@ class Store:
     def add_node(self, content: str, scope: str = "global", timestamp: float | None = None,
                  entities: list[str] | None = None, source: str | None = None, branch: str | None = None,
                  commit: str | None = None) -> int:
+        scope = norm_scope(scope)
         emb = self.embedder.embed([content])[0].astype(np.float32)
         # never reuse the id of a deleted note: consolidation watermarks and edges refer to ids
         top = self.db.execute("SELECT COALESCE(MAX(id), 0) FROM nodes").fetchone()[0]
@@ -259,6 +272,7 @@ class Store:
     def _query(self, where: str = "", args: list | None = None, scopes: list[str] | None = None,
                order: str = "", limit: int | None = None) -> list[Node]:
         args, conds = list(args or []), [where] if where else []
+        scopes = norm_scopes(scopes)
         if scopes:
             conds.append(f"scope IN ({','.join('?' * len(scopes))})"); args += scopes
         sql = "SELECT * FROM nodes" + (" WHERE " + " AND ".join(conds) if conds else "")
@@ -281,6 +295,7 @@ class Store:
         return sorted({x.id: x for x in before + after}.values(), key=lambda x: abs(x.timestamp - ts))[:n]
 
     def max_timestamp(self, scopes: list[str] | None) -> float | None:
+        scopes = norm_scopes(scopes)
         q = f" AND scope IN ({','.join('?' * len(scopes))})" if scopes else ""
         return self.db.execute(f"SELECT MAX(ts) FROM nodes WHERE ts IS NOT NULL{q}", scopes or []).fetchone()[0]
 
@@ -305,7 +320,7 @@ class Store:
     # -- search ----------------------------------------------------------------
     def vector_search(self, text: str, scopes: list[str] | None, k: int,
                       exclude: set[int] = frozenset()) -> list[tuple[int, float]]:
-        return self.index.search(self.embedder.embed([text])[0], scopes, k, exclude)
+        return self.index.search(self.embedder.embed([text])[0], norm_scopes(scopes), k, exclude)
 
     def lexical_search(self, text: str, scopes: list[str] | None, k: int,
                        exclude: set[int] = frozenset()) -> list[tuple[int, float]]:
@@ -313,6 +328,7 @@ class Store:
         if not toks:
             return []
         match = " OR ".join(f'"{t}"' for t in toks)
+        scopes = norm_scopes(scopes)
         sql = "SELECT fts.rowid AS rowid, bm25(fts) AS s FROM fts"
         args: list = [match]
         if scopes:
@@ -331,6 +347,7 @@ class Store:
         want = list({e.lower() for e in entities})
         if not want:
             return []
+        scopes = norm_scopes(scopes)
         q = ",".join("?" * len(want))
         sql = f"SELECT n.* FROM nodes n WHERE n.id IN (SELECT node_id FROM node_entities WHERE entity IN ({q}))"
         args = want
