@@ -1,0 +1,23 @@
+@startuml consolidation
+!include style.iuml
+title Memory that cleans itself: consolidation
+participant "Writer" as w
+participant "Jev" as jev
+participant "Code" as code
+database "Graph" as g
+participant "Claude" as cl
+
+w -> jev : every 20 writes:\nnew note vs its 3 nearest older neighbours\n(order-neutral questions)
+jev --> code : same question, different answer? outdated? reports a change?\nstates every fact of the other? repeated episode?
+code -> code : order by timestamp\n(tie → latest date in text → who reports the change)
+code -> g : older note ➜ **superseded_by** newer
+code -> g : fully covered ➜ **duplicate_of / subsumed_by**
+code -> g : unorderable ➜ **contradicts** + conflict proposal
+code -> cl : repeated episodes ➜ "write the general pattern"
+cl -> g : memory_resolve (new semantic note)
+note right of g
+  Nothing is ever deleted.
+  Stale notes stay searchable, rank lower,
+  and are skipped by SessionStart.
+end note
+@enduml

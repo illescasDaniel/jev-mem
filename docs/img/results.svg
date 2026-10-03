@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" width="760" height="360" font-family="Helvetica, Arial, sans-serif">
+<rect width="760" height="360" fill="#FFFFFF"/>
+<text x="380" y="26" text-anchor="middle" font-size="16" font-weight="bold" fill="#0F172A">Recall: did the right note reach the agent? (higher is better)</text>
+<line x1="60" x2="740" y1="240.0" y2="240.0" stroke="#E2E8F0"/>
+<text x="52" y="244.0" text-anchor="end" font-size="11" fill="#475569">0.0</text>
+<line x1="60" x2="740" y1="202.0" y2="202.0" stroke="#E2E8F0"/>
+<text x="52" y="206.0" text-anchor="end" font-size="11" fill="#475569">0.2</text>
+<line x1="60" x2="740" y1="164.0" y2="164.0" stroke="#E2E8F0"/>
+<text x="52" y="168.0" text-anchor="end" font-size="11" fill="#475569">0.4</text>
+<line x1="60" x2="740" y1="126.0" y2="126.0" stroke="#E2E8F0"/>
+<text x="52" y="130.0" text-anchor="end" font-size="11" fill="#475569">0.6</text>
+<line x1="60" x2="740" y1="88.0" y2="88.0" stroke="#E2E8F0"/>
+<text x="52" y="92.0" text-anchor="end" font-size="11" fill="#475569">0.8</text>
+<line x1="60" x2="740" y1="50.0" y2="50.0" stroke="#E2E8F0"/>
+<text x="52" y="54.0" text-anchor="end" font-size="11" fill="#475569">1.0</text>
+<rect x="85" y="76.6" width="44" height="163.4" rx="3" fill="#94A3B8"/>
+<text x="107.0" y="71.6" text-anchor="middle" font-size="12" font-weight="normal" fill="#0F172A">0.86</text>
+<rect x="133" y="63.3" width="44" height="176.7" rx="3" fill="#64748B"/>
+<text x="155.0" y="58.3" text-anchor="middle" font-size="12" font-weight="normal" fill="#0F172A">0.93</text>
+<rect x="181" y="51.9" width="44" height="188.1" rx="3" fill="#0EA5E9"/>
+<text x="203.0" y="46.9" text-anchor="middle" font-size="12" font-weight="bold" fill="#0F172A">0.99</text>
+<text x="155.0" y="258" text-anchor="middle" font-size="12" fill="#334155">Held-out notes</text>
+<text x="155.0" y="272" text-anchor="middle" font-size="12" fill="#334155">(41 questions)</text>
+<text x="155.0" y="300" text-anchor="middle" font-size="11" fill="#0369A1">notes injected: 5 vs 1.4</text>
+<rect x="300" y="107.0" width="44" height="133.0" rx="3" fill="#94A3B8"/>
+<text x="322.0" y="102.0" text-anchor="middle" font-size="12" font-weight="normal" fill="#0F172A">0.70</text>
+<rect x="348" y="116.5" width="44" height="123.5" rx="3" fill="#64748B"/>
+<text x="370.0" y="111.5" text-anchor="middle" font-size="12" font-weight="normal" fill="#0F172A">0.65</text>
+<rect x="396" y="70.9" width="44" height="169.1" rx="3" fill="#0EA5E9"/>
+<text x="418.0" y="65.9" text-anchor="middle" font-size="12" font-weight="bold" fill="#0F172A">0.89</text>
+<text x="370.0" y="258" text-anchor="middle" font-size="12" fill="#334155">LoCoMo, 9 conversations</text>
+<text x="370.0" y="272" text-anchor="middle" font-size="12" fill="#334155">(272 questions)</text>
+<text x="370.0" y="300" text-anchor="middle" font-size="11" fill="#0369A1">notes injected: 5 vs 2.3</text>
+<rect x="515" y="69.0" width="44" height="171.0" rx="3" fill="#94A3B8"/>
+<text x="537.0" y="64.0" text-anchor="middle" font-size="12" font-weight="normal" fill="#0F172A">0.90</text>
+<rect x="563" y="69.0" width="44" height="171.0" rx="3" fill="#64748B"/>
+<text x="585.0" y="64.0" text-anchor="middle" font-size="12" font-weight="normal" fill="#0F172A">0.90</text>
+<rect x="611" y="50.0" width="44" height="190.0" rx="3" fill="#0EA5E9"/>
+<text x="633.0" y="45.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#0F172A">1.00</text>
+<text x="585.0" y="258" text-anchor="middle" font-size="12" fill="#334155">Real commit history</text>
+<text x="585.0" y="272" text-anchor="middle" font-size="12" fill="#334155">(31 questions)</text>
+<text x="585.0" y="300" text-anchor="middle" font-size="11" fill="#0369A1">notes injected: 5 vs 2.1</text>
+<rect x="70" y="338" width="12" height="12" rx="2" fill="#94A3B8"/>
+<text x="88" y="348" font-size="12" fill="#334155">vector top-5</text>
+<rect x="200" y="338" width="12" height="12" rx="2" fill="#64748B"/>
+<text x="218" y="348" font-size="12" fill="#334155">hybrid top-5</text>
+<rect x="330" y="338" width="12" height="12" rx="2" fill="#0EA5E9"/>
+<text x="348" y="348" font-size="12" fill="#334155">jevmem</text>
+<text x="740" y="326" text-anchor="end" font-size="10" fill="#64748B">bge-small embeddings; small datasets, see docs/evaluation.md</text>
+</svg>

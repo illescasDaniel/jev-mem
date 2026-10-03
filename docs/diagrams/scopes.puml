@@ -1,0 +1,15 @@
+@startuml scopes
+!include style.iuml
+title Shared and private memory across agents and worktrees
+rectangle "scope **global**\nyour personal preferences" as G #F1F5F9
+rectangle "scope **project:acme**\nshared by every agent and git worktree of the repo" as P #E0F2FE
+rectangle "scope **agent:coder**\nprivate" as A1 #DCFCE7
+rectangle "scope **agent:researcher**\nprivate" as A2 #DCFCE7
+rectangle "worktree\nmain" as w1
+rectangle "worktree\nfeature/x" as w2
+w1 --> P
+w2 --> P : notes tagged with branch + commit\nunmerged-branch notes rank ×0.8
+A1 --> P : reads / writes
+A2 --> P
+P -[hidden]-> G
+@enduml

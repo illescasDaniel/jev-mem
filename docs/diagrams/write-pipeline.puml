@@ -1,0 +1,40 @@
+@startuml write-pipeline
+!include style.iuml
+title What happens when an agent writes a note
+start
+:Agent calls **memory_write**\n"On 2026-05-15 we moved the month-end job to 22:00\nbecause the warehouse was downsized to Medium";
+partition "Cheap code gates (no Jev call)" {
+  if (contains a credential?\n(keys, tokens, passwords, DSNs)) then (yes)
+    :Reject; <<#FECACA>>
+    stop
+  endif
+  if (near-duplicate in scope?\ncosine ≥ 0.97) then (yes)
+    :Reject; <<#FECACA>>
+    stop
+  endif
+}
+partition "Jev call #1: typing and screening (batched)" {
+  :Type scores: episodic · semantic · procedural ·\npreference · decision · bugfix · convention · gotcha;
+  if (injection aimed at the agent?) then (yes)
+    :Reject; <<#FECACA>>
+    stop
+  endif
+  if (work status?\n"next step is X") then (yes)
+    :Reject\n//belongs in git-tracked markdown//; <<#FECACA>>
+    stop
+  endif
+}
+partition "Candidates (code)" {
+  :vector + BM25 + shared entities + nearest in time\nmerged with reciprocal rank fusion;
+}
+partition "Jev call #2: relations (batched)" {
+  :Semantic / causal link probability per candidate;
+  :Store edges ≥ 0.60;
+}
+:Entity and temporal edges\n(created by code, Jev cannot order dates);
+:Store note + embedding + git branch and commit;
+if (20th successful write?) then (yes)
+  :Consolidation pass;
+endif
+stop
+@enduml

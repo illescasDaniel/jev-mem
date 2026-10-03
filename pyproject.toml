@@ -41,4 +41,22 @@ build-backend = "uv_build"
 dev = [
     "pgserver>=0.1.4",
     "pytest>=9.1.1",
+    "taskipy>=1.14.1",
 ]
+
+# Run with `uv run task <name>` (list them with `uv run task --list`). Extra arguments are appended to the command.
+# Tasks marked "live" call Jev and need TYPESAFE_API_KEY (in .env); they cost a few cents at most.
+[tool.taskipy.tasks]
+test = { cmd = "pytest -q", help = "unit tests (no Jev, no network)" }
+test-all = { cmd = "pytest -q -rs", help = "unit tests, listing skipped tests (e.g. optional backends)" }
+build = { cmd = "uv build", help = "build the sdist and wheel into dist/" }
+diagrams = { cmd = "docs/diagrams/render.sh", help = "re-render docs/img from the PlantUML sources (needs Java, Graphviz, PLANTUML_JAR)" }
+demo = { cmd = "python examples/multi_agent.py", help = "live: route / screen / filter / shared memory / stop demo" }
+eval = { cmd = "jevmem eval --data evals/harbor.json", help = "live: retrieval eval on the held-out set (add --embedder fastembed)" }
+eval-orbit = { cmd = "jevmem eval --data evals/orbit.json", help = "live: retrieval eval on the tuning set (in-sample)" }
+eval-injection = { cmd = "jevmem eval-injection", help = "live: write-path injection screen accuracy" }
+eval-status = { cmd = "jevmem eval-status", help = "live: work-status note classifier accuracy" }
+eval-consolidation = { cmd = "python evals/consolidation_eval.py evals/consolidation.json evals/consolidation_holdout.json evals/consolidation_holdout2.json evals/consolidation_ties.json evals/consolidation_ties_holdout.json", help = "live: consolidation on every labelled pair set" }
+eval-capture = { cmd = "python evals/capture_eval.py evals/capture_prompts.json", help = "live: auto-capture false/true positives" }
+eval-hook = { cmd = "python evals/hook_eval.py evals/hook_prompts.json", help = "live: prompt-hook injection (needs JEVMEM_DB and JEVMEM_SCOPE of a real store)" }
+bench-index = { cmd = "python evals/bench_index.py matrix --n 100000", help = "vector index benchmark; pass another SPEC and --n as arguments" }

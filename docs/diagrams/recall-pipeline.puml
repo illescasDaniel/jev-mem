@@ -1,0 +1,29 @@
+@startuml recall-pipeline
+!include style.iuml
+title How recall answers a question (mode = auto)
+start
+:Question;
+:Vector top-20 (+ keyword search);
+partition "lite  ·  1 Jev call  ·  ~0.25 s" {
+  :Relevance filter + sufficiency +\n"is this multi-hop or time-related?";
+}
+if (nothing found, or multi-hop / temporal?) then (yes)
+  partition "full  ·  ~6 Jev calls  ·  ~1.4 s" {
+    :Route: facts / timelines / causes / entities;
+    :Anchors (RRF of vector + BM25), judged by Jev;
+    repeat
+      :Expand along graph edges\n(budget: depth, nodes, calls, seconds);
+      :Stop check: sufficient? missing?\ncontradiction? worth continuing?;
+    repeat while (not sufficient and within budget) is (continue)
+    -> stop;
+  }
+else (no)
+endif
+:Drop superseded / unmerged-branch notes\nor rank them lower;
+if (enough evidence?) then (yes)
+  :Return a few short notes\n**sufficient = true**;
+else (no)
+  :Return what exists, **sufficient = false**\n//the agent looks elsewhere instead of guessing//;
+endif
+stop
+@enduml

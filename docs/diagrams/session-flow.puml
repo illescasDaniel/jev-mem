@@ -1,0 +1,36 @@
+@startuml session-flow
+!include style.iuml
+title Memory without the agent asking for it (Claude Code hooks)
+actor Developer as dev
+participant "Claude Code" as cc
+participant "jevmem hooks" as hk
+participant "Jev" as jev
+database "SQLite" as db
+
+== SessionStart (no Jev call) ==
+cc -> hk : session opens
+hk -> db : pinned notes, then strongest conventions /\ngotchas / decisions
+hk -> hk : boost by recent branch, commits, touched paths\nskip notes AGENTS.md already states
+hk --> cc : injected as **data, not instructions**
+
+== UserPromptSubmit ==
+dev -> cc : "why does the month-end job run at night?"
+cc -> hk : prompt
+hk -> jev : needs memory? (1 call)
+alt needs memory
+  hk -> db : lite recall, vector top-20
+  hk -> jev : keep only notes about this exact subject
+  hk --> cc : 1-3 notes about the warehouse downsize
+else not needed
+  hk --> cc : nothing injected (no tokens spent)
+end
+opt prompt states a standing rule ("we never use pip")
+  hk -> jev : short? standing preference? secret? relative date?
+  hk -> db : auto-store (conservative)
+end
+
+note over hk
+  Fails open: any error or Jev outage injects nothing
+  and never blocks the session.
+end note
+@enduml

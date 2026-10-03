@@ -16,20 +16,15 @@ jevmem gives job 1 to **Jev** (a fast, cheap classifier-style model) and job 2 t
 itself never calls a generative LLM. Memory is stored in a plain **SQLite** file, with an optional **vector
 index** next to it for fast similarity search.
 
-```
-Claude (writes notes, reads answers)          <- System Two: slow, expensive, generative
-   |  memory_write / memory_recall (MCP, hooks, Python)
-jevmem
-   |-- Jev decides: type, injection, relations, routing, relevance, stop    <- System One: fast, cheap
-   |-- SQLite file: notes, graph edges, full-text index, embeddings (truth)
-   '-- vector index (matrix | sqlite-vec | qdrant | lancedb | pgvector): derived copy for similarity search
-```
+![architecture](img/architecture.svg)
+
+The pipelines in detail, with diagrams, are in [architecture.md](architecture.md).
 
 ## 2. Jev and "System One"
 
 Jev (by TypeSafe) is a model that **answers typed questions about some data and never writes text**. This mirrors
 the "System One / System Two" split from psychology: System One is fast intuition, System Two is slow reasoning.
-The paper behind this project (*Jev-Mem*, arXiv 2609.23986) argues most memory-control work is "semantic but not
+The paper behind this project (*Jev-Mem: System-One-Controlled Agentic Memory for Efficient AI Agents*, [arXiv:2609.23986](https://arxiv.org/abs/2609.23986)) argues most memory-control work is "semantic but not
 generative", so a System-One model should do it instead of an expensive LLM.
 
 You send a `state` (named JSON) and a batch of `questions`. Each question returns a typed answer:

@@ -1,0 +1,20 @@
+@startuml architecture
+!include style.iuml
+skinparam rectangle {
+  RoundCorner 14
+}
+
+rectangle "**System Two**  (slow, generative, expensive)\nClaude or your own agent\nwrites atomic dated notes · synthesises patterns · answers with the recalled evidence" as S2 #FEF3C7
+
+rectangle "**jevmem**  (never calls a generative LLM)\n\nMCP server · Claude Code hooks · CLI · Python API\n\n**write**: screen → type → relate\n**recall**: route → anchor → expand → stop\n**consolidate**: supersede · dedupe · patterns" as JM #E0F2FE
+
+rectangle "**System One**  (fast, cheap, typed)\nJev by TypeSafe: answers typed questions with probabilities, never writes text\n~0.25 s · ~$0.0002 per recall" as S1 #DCFCE7
+
+database "**SQLite file**  (source of truth)\nnotes · graph edges · FTS5/BM25 · embeddings" as DB
+database "**Vector index**  (rebuildable copy)\nmatrix · sqlite-vec · Qdrant · LanceDB · pgvector" as VI
+
+S2 --> JM : memory_write /\nmemory_recall
+JM --> S1 : batched typed questions
+JM --> DB
+DB -> VI : derived
+@enduml
