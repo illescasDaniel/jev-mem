@@ -118,6 +118,21 @@ To work on the code, `git clone` this repo and `uv sync`. Full setup, every envi
 [docs/installation.md](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md).
 For better semantic search offline, use `uvx --from 'jevmem[embed]' jevmem-mcp` with `JEVMEM_EMBEDDER=fastembed` (local model, no API).
 
+## Use it with a memory bank
+
+jevmem is a **supplement** to a markdown memory bank, not a replacement. Keep current state (focus, blockers, next
+steps) in a few git-tracked files the agent reads whole each session, so it follows the branch and shows in PR diffs;
+keep the dated facts that stay true (decisions with reasons, bug causes, gotchas, preferences) in jevmem, where they are
+recalled by relevance. Rules stay in `AGENTS.md` / `CLAUDE.md`. Never put "next step is X" in jevmem: it goes stale
+silently, and `memory_write` rejects it.
+
+If you do not have a memory bank yet, [memory-bank](https://github.com/illescasDaniel/memory-bank) is a ready-made one:
+an Agent Skill plus templates for Claude Code and Cursor, written to work alongside jevmem.
+
+```bash
+npx skills add illescasDaniel/memory-bank
+```
+
 ## Results
 
 Measured live against Jev on small datasets we built ourselves, with real embeddings (`bge-small`). They are

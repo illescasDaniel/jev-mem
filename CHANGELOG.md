@@ -2,6 +2,9 @@
 
 ## 0.1.0 - 2026-10-03 (first published version)
 
+- README: says jevmem supplements a markdown memory bank and links the companion
+  [memory-bank](https://github.com/illescasDaniel/memory-bank) skill.
+
 ### Known-limitations pass
 - MCP tool failures reach the agent as `<ExceptionType>: <message>` instead of "Error executing tool X";
   `memory_recall` items carry `flags` (superseded, contradicts, ...) and a `hint` when lite says memory may be missing
