@@ -352,3 +352,57 @@ one also restates `AGENTS.md`). A Jev coverage check was tried and was weaker. A
 injected notes are project facts that are in no instruction file. The chunk embeddings are cached in the store's
 meta table by content hash: about 6 s of CPU the first session after an instruction file changes, then nothing.
 
+
+Update (borderline band): notes whose best similarity to the instruction files is between 0.70 and 0.82 now get one
+batched Jev coverage question ("do these lines already state every fact in the note?"), cached in the meta table by
+instruction-file hash and note id. On the 46 SpaceMaker notes in that band it scored the three real restatements
+0.85, 0.79 and 0.64, and every other note <= 0.29; `Config.restated_min` 0.50 sits in that gap. Together with the
+embedding threshold this skips 22 of the 23 notes imported from `AGENTS.md` and none of the other 59 (one paraphrase
+scored 0.11). One project, no held-out split. If Jev is down the notes are injected (fail open).
+
+## Status notes (`evals/status.json`, `jevmem eval-status`)
+A `status` question rides along in the typing call. Tune set: 15 work-status lines vs 21 dated facts, decisions and
+gotchas; held-out: 8 vs 16. At `Config.status_block` 0.85 both sets score 0 misses and 0 false rejections (status
+notes scored >= 0.93, kept notes <= 0.70). Dated events about finished work are kept.
+
+## Auto-capture (`evals/capture_eval.py`, `evals/capture_prompts.json`)
+Runs the real prompt hook with auto-capture on against an empty store. 123 real prompts (the chat messages typed in 40
+past Claude Code sessions, harvested by `evals/harvest_prompts.py`) must not be captured; 12 synthetic standing rules
+("From now on we always squash merge pull requests.") should be. Result at `Config.capture_standing` 0.70, with the
+shape screen (<= 300 chars, one paragraph, <= 2 sentences, no question): 0/82 false captures on tune, 0/41 on
+held-out, 11 of 12 standing rules stored. The 357-character message that was stored in the trial now fails the shape
+screen before any Jev call.
+
+## Consolidation: ties and co-retrieval
+`evals/consolidation_ties.json` / `_holdout.json`: pairs written at the same time with no dates in the text, where
+one note reports the change. Before: 0 of 36 resolved (all filed as contradictions). After ordering by the
+direction of `reports_change`: 32 of 36 become `superseded_by`, 18 of 18 true contradictions stay `contradicts`, 12 of
+12 distinct pairs stay unflagged. The older sets are unchanged (80/80, 44/44, 32/32). Pairs that recall returns
+together are queued (cosine >= 0.60) and judged on the next consolidation pass.
+
+## SessionStart ranking (`evals/session_eval.py`)
+Gold for each of 31 past SpaceMaker sessions: the notes Jev judges to be about the same subject as the session's first
+prompt. The pseudo-query is the git branch, the last 10 commit subjects and touched paths as of the session start.
+hit@10 (a gold note in the 10 injected) by `session_context_weight`: 0 -> 0.39, 2 -> 0.45, 4 -> 0.48, 8 -> 0.52 (flat
+beyond); recall@10 0.12 -> 0.23. Default 8. The usage boost (`session_usage_weight` 0.1) could not be evaluated
+historically because the usage table starts empty.
+
+## Retrieval after the limitation fixes
+Pooled over the 14 sets (466 questions), `fastembed`, before / after the whole limitations pass:
+
+| row | recall before | recall after | calls | Jev tokens |
+|---|---|---|---|---|
+| lite | 0.878 | 0.876 | 1.00 / 1.00 | 2299 / 2299 |
+| full | 0.914 | 0.904 | 5.56 / 5.48 | 8389 / 8093 |
+| auto | 0.911 | 0.905 | 3.55 / 3.42 | 6310 / 6362 |
+
+The full and auto rows first lost 0.009 and 0.005 recall. A repeat run of the same code differed by 2-3 questions, so
+the gap was real, and the per-question losses were multi-hop and temporal questions that lost one scoring call (16 -> 15,
+5 -> 4): the old code overshot its documented cap of 16 (up to 19 calls) and the new code enforces it. Re-running the six
+affected sets with the cap at 19 gave full 0.8915 -> 0.9064 (old 0.9090) at 5.64 calls (old 5.62) and auto 0.8852 ->
+0.8931 (old 0.9007) at 3.70 calls (old 3.64), so `max_jev_calls` now defaults to 19: a true cap at the cost the old code
+actually had. Auto keeps a residual ~0.007 on those sets that was not chased further. The call cap includes lite's call
+and escalated queries reuse lite's relevance judgments.
+Pruning graph candidates to 24 per round was tried and dropped: it cost ~0.01 recall and saved no calls (calls per
+question were ~5, nowhere near the cap). A combined escalation rule (lite insufficient AND `multi_hop` >= x) gave at
+best +0.002 recall for +9% tokens, so it was not adopted.

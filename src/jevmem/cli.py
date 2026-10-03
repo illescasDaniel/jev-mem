@@ -73,8 +73,9 @@ def main(argv: list[str] | None = None) -> None:
     co = sub.add_parser("consolidate"); co.add_argument("--all", action="store_true", help="re-judge every note (after an upgrade)")
     e = sub.add_parser("eval"); e.add_argument("--data", default="evals/orbit.json"); e.add_argument("-k", type=int, default=5); e.add_argument("--json"); e.add_argument("--embedder", help="hash | fastembed[:model]")
     ei = sub.add_parser("eval-injection"); ei.add_argument("--data", default="evals/injection.json")
+    es = sub.add_parser("eval-status"); es.add_argument("--data", default="evals/status.json")
     h = sub.add_parser("hook"); h.add_argument("event", choices=["session-start", "user-prompt"])
-    f = sub.add_parser("forget"); f.add_argument("node_id", type=int)
+    f = sub.add_parser("forget"); f.add_argument("node_id", type=int, nargs="?"); f.add_argument("--branch", help="forget every note written on this git branch (e.g. an abandoned one)")
     pn = sub.add_parser("pin"); pn.add_argument("node_id", type=int); pn.add_argument("--off", action="store_true")
     rs = sub.add_parser("resolve"); rs.add_argument("synthesis_id", type=int); rs.add_argument("text")
     ds = sub.add_parser("dismiss"); ds.add_argument("synthesis_id", type=int)
@@ -89,6 +90,9 @@ def main(argv: list[str] | None = None) -> None:
     if a.cmd == "eval-injection":
         from .evalharness import run_injection
         return run_injection(a.data)
+    if a.cmd == "eval-status":
+        from .evalharness import run_status
+        return run_status(a.data)
     if a.cmd == "hook":
         from .hooks import run
         return run(a.event)
@@ -114,7 +118,14 @@ def main(argv: list[str] | None = None) -> None:
         print(json.dumps(svc.stats(), indent=2))
     elif a.cmd == "reembed":
         print(f"re-embedded {svc.store.reembed()} notes with {getattr(svc.store.embedder, 'spec', '?')}")
+    elif a.cmd == "forget" and a.branch:
+        ids = [n.id for n in svc.store.nodes() if n.branch == a.branch]
+        for i in ids:
+            svc.store.delete_node(i)
+        print(f"deleted {len(ids)} notes written on branch {a.branch}")
     elif a.cmd == "forget":
+        if a.node_id is None:
+            ap.error("forget needs a node id or --branch")
         existed = svc.store.get(a.node_id) is not None
         svc.store.delete_node(a.node_id)
         print("deleted" if existed else "no such note")

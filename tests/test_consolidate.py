@@ -161,3 +161,60 @@ def test_rescan_rejudges_old_notes_and_replaces_stale_flags():
     rep = svc.consolidator.rescan()
     assert rep.checked == 2 and rep.superseded == 1
     assert svc.store.flagged("superseded_by") == {o.node_id} and svc.store.flagged("contradicts") == set()
+
+
+def test_same_time_conflict_is_ordered_by_which_note_reports_the_change():
+    def rule(state, key, q):
+        if key.endswith("_reports_change"):
+            new, cand = texts(state, key)
+            return 0.9 if "moved to" in (new if key.endswith("_new_reports_change") else cand) else 0.05
+        return clash(("Memcached", "Redis"))(state, key, q)
+    for order in (0, 1):                                      # whichever note was written last
+        svc, _ = make(rule)
+        notes = [("The cache is Memcached.", "old"), ("The cache moved to Redis.", "new")]
+        ids = {}
+        for text, name in notes[::-1] if order else notes:
+            ids[name] = svc.write(text, scope="project:p", timestamp="2026-05-05")[0].node_id
+        rep = svc.consolidator.run()
+        assert rep.superseded == 1 and rep.contradictions == 0
+        assert svc.store.flagged("superseded_by") == {ids["old"]}
+
+
+def test_a_real_contradiction_becomes_a_proposal_the_agent_settles():
+    svc, _ = make(clash(("Postgres", "MySQL")))
+    a, _ = svc.write("The shop uses Postgres.", scope="project:p", timestamp="2026-05-05")
+    b, _ = svc.write("The shop uses MySQL.", scope="project:p", timestamp="2026-05-05")
+    assert svc.consolidator.run().proposals == 1
+    item, = svc.consolidator.pending()
+    assert item["kind"] == "conflict" and {m["id"] for m in item["memories"]} == {a.node_id, b.node_id}
+    assert "memory_forget" in item["instruction"]
+    res = svc.consolidator.resolve(item["id"], "As of 2026-10-03 the shop uses Postgres.")
+    assert res["ok"] and svc.store.flagged("merged_into") == {a.node_id, b.node_id}
+    assert svc.store.stale() == {a.node_id, b.node_id}        # both originals now rank below the settled fact
+
+
+def test_forgetting_one_side_closes_the_conflict_proposal():
+    svc, _ = make(clash(("Postgres", "MySQL")))
+    a, _ = svc.write("The shop uses Postgres.", scope="project:p", timestamp="2026-05-05")
+    svc.write("The shop uses MySQL.", scope="project:p", timestamp="2026-05-05")
+    svc.consolidator.run()
+    svc.store.delete_node(a.node_id)
+    assert svc.consolidator.pending() == []
+
+
+def test_notes_recall_returns_together_are_compared_even_if_never_neighbours():
+    def rule(state, key, q):
+        if key.startswith("item_"):
+            return 0.9
+        return clash(("Postgres", "MySQL"))(state, key, q)
+    svc, d = make(rule, coretrieved_similarity=0.0)
+    a = svc.store.add_node("The shop uses Postgres.", "project:p", 1.0)
+    b = svc.store.add_node("The shop uses MySQL.", "project:p", 2.0)
+    svc.store.meta_set("last_consolidated_id", b)            # as if write-time consolidation never paired them
+    svc.retriever.recall("which database does the shop use", ["project:p"], mode="lite")
+    assert svc.store.queued_pairs(10) == [(a, b)]
+    rep = svc.consolidator.run()
+    assert rep.superseded == 1 and svc.store.flagged("superseded_by") == {a}
+    assert svc.store.queued_pairs(10) == []                  # judged once, not again
+    svc.retriever.recall("which database does the shop use", ["project:p"], mode="lite")
+    assert svc.store.queued_pairs(10) == []

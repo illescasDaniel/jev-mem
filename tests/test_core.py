@@ -103,3 +103,12 @@ def test_weak_anchors_are_dropped():
     w.write("Unrelated: the deploy script lives in ops/deploy.sh")
     res = r.recall("When did Mira buy a bicycle, and why?")
     assert all("deploy" not in e.content for e in res.evidence)
+
+
+def test_work_status_notes_are_rejected_with_a_hint():
+    def status_rule(state, key, q):
+        return 0.95 if key == "status" and "next step" in state["observation"].lower() else 0.05
+    s = Store(":memory:"); w = Writer(s, FakeDecider(status_rule))
+    r = w.write("Next step is to wire the middleware into the export route.")
+    assert r.rejected and "markdown" in r.reason and s.count() == 0
+    assert not w.write("On 2026-10-03 the middleware was wired into the export route.").rejected

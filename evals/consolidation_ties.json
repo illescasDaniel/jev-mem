@@ -1,0 +1,149 @@
+{
+ "about": "Pairs written with the SAME timestamp and no dates in the text, so only the wording can order them. superseded = the new note states the change (rename, replacement); contradiction = two neutral, incompatible claims. tune split was used to pick Config.tie_other_max; holdout was not.",
+ "pairs": [
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The billing service uses Postgres 14.",
+   "new": "The billing service was upgraded to Postgres 16."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "CI runs on CircleCI.",
+   "new": "We moved CI from CircleCI to GitHub Actions."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The API rate limit is 100 requests per minute.",
+   "new": "The API rate limit was raised to 300 requests per minute."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Release notes are written by Dana.",
+   "new": "Release notes are now written by Priya instead of Dana."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The staging database is reset every Monday.",
+   "new": "The staging database reset moved from Mondays to Fridays."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Logs are shipped with Fluentd.",
+   "new": "Fluentd was replaced by Vector for shipping logs."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The frontend is built with Webpack.",
+   "new": "The frontend build switched from Webpack to Vite."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The on-call rotation is weekly.",
+   "new": "On-call rotations are no longer weekly: they are now every two weeks."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Backups go to the bucket acme-backups-eu.",
+   "new": "Backups were moved to the bucket acme-archive-eu."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Feature flags live in flags.yaml.",
+   "new": "flags.yaml was removed; feature flags now live in the LaunchDarkly dashboard."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The deploy window is Tuesday afternoon.",
+   "new": "The deploy window is Thursday morning."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The payment provider is Stripe.",
+   "new": "The payment provider is Adyen."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Python code is formatted with black.",
+   "new": "Python code is formatted with ruff format."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The retention period for audit logs is 90 days.",
+   "new": "The retention period for audit logs is 365 days."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The team lead for the data platform is Marta.",
+   "new": "The team lead for the data platform is Olek."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The billing service uses Postgres 14.",
+   "new": "The search service uses Elasticsearch 8."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Release notes are written by Dana.",
+   "new": "Backups go to the bucket acme-backups-eu."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "CI runs on CircleCI.",
+   "new": "The on-call rotation is weekly."
+  }
+ ]
+}

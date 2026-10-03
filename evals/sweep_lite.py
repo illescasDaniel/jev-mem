@@ -29,13 +29,14 @@ def score(rows, ts, tm):
     return 1 - (fp + fn) / len(rows), fp, fn
 
 
-def auto(sets, ts, tm, insufficient):
+def auto(sets, ts, tm, insufficient, x_lo=None):
     rec, calls, tok = [], [], []
     for d in sets.values():
         for lt, fu in zip(d["jevmem-lite"], d["jevmem"]):
             a = lt["assess"] or {}
             esc = not lt["returned"] or a.get("multi_hop", 0) >= MH or a.get("temporal", 0) >= TEMP \
-                or (insufficient and lt["assess"] is not None and not pred(lt, ts, tm))
+                or (insufficient and lt["assess"] is not None and not pred(lt, ts, tm)) \
+                or (x_lo is not None and lt["assess"] is not None and not pred(lt, ts, tm) and a.get("multi_hop", 0) >= x_lo)
             r = fu if esc else lt
             if r["recall"] is not None:
                 rec.append(r["recall"])
@@ -67,6 +68,10 @@ def main(paths):
         for ins in (False, True):
             rc, c, t = auto(sets, ts, tm, ins)
             print(f"auto suff>={ts} miss<{tm} escalate_insufficient={ins}: recall {rc:.3f} calls {c:.2f} tokens {t:.0f}")
+    print("combined rule: escalate if lite says insufficient AND multi_hop >= x_lo")
+    for x_lo in (0.05, 0.1, 0.2, 0.3, 0.4, 0.5):
+        rc, c, t = auto(sets, 0.5, 0.6, False, x_lo)
+        print(f"  x_lo={x_lo}: recall {rc:.3f} calls {c:.2f} tokens {t:.0f}")
 
 
 if __name__ == "__main__":

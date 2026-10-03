@@ -1,0 +1,125 @@
+{
+ "about": "Held-out same-timestamp pairs (see consolidation_ties.json). Never used for tuning.",
+ "pairs": [
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Secrets are stored in Vault.",
+   "new": "Vault is gone: secrets are stored in AWS Secrets Manager now."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The mobile app targets Android 12 and above.",
+   "new": "The minimum Android version was raised from 12 to 13."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Alerts are sent to the #ops channel.",
+   "new": "Alerts now go to #incidents; #ops no longer receives them."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The cache is Memcached.",
+   "new": "The cache layer was replaced with Redis."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Daily standup is at 9:00.",
+   "new": "Standup moved from 9:00 to 9:45."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Container images are built with Docker.",
+   "new": "Container images are built with Buildah instead of Docker."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Customer data lives in the us-east-1 region.",
+   "new": "Customer data was migrated from us-east-1 to eu-west-1."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The linter is flake8.",
+   "new": "We dropped flake8 and adopted ruff as the linter."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The default page size is 25.",
+   "new": "The default page size is 50."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The staging URL is staging.example.com.",
+   "new": "The staging URL is stage.example.org."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Sessions expire after 30 minutes.",
+   "new": "Sessions expire after 2 hours."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The main branch is called master.",
+   "new": "The main branch is called trunk."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Secrets are stored in Vault.",
+   "new": "The mobile app targets Android 12 and above."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "The default page size is 25.",
+   "new": "The linter is flake8."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "Alerts are sent to the #ops channel.",
+   "new": "Customer data lives in the us-east-1 region."
+  }
+ ]
+}

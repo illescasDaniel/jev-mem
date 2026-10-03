@@ -7,6 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from . import gitctx
 from .config import Config
 from .consolidate import ConsolidationReport, Consolidator
 from .decider import JevDecider
@@ -23,7 +24,7 @@ def db_path() -> str:
 
 class Service:
     def __init__(self, path: str | None = None, decider=None, config: Config | None = None,
-                 switch_embedder: bool = False):
+                 switch_embedder: bool = False, cwd: str | None = None):
         load_dotenv(os.environ.get("JEVMEM_ENV_FILE") or Path.home() / ".jevmem" / ".env")
         load_dotenv()
         self.cfg = config or Config()
@@ -32,11 +33,31 @@ class Service:
         self.store = Store(path or db_path(), switch_embedder=switch_embedder)
         self.decider = decider or JevDecider()
         self.writer = Writer(self.store, self.decider, self.cfg)
-        self.retriever = Retriever(self.store, self.decider, self.cfg)
+        self.retriever = Retriever(self.store, self.decider, self.cfg, penalty=lambda n: self.branch_rank.penalty(n))
         self.consolidator = Consolidator(self.store, self.decider, self.writer, self.cfg)
+        self.workdir = cwd
+        self._branch_rank: gitctx.BranchRank | None = None
+
+    @property
+    def workdir(self) -> str:
+        """The host agent's working directory: where notes record their git branch and commit, and what ranks them."""
+        return self._workdir
+
+    @workdir.setter
+    def workdir(self, cwd: str | None) -> None:
+        self._workdir, self._branch_rank = gitctx.project_dir(cwd), None
+
+    @property
+    def branch_rank(self) -> gitctx.BranchRank:
+        if self._branch_rank is None:
+            self._branch_rank = gitctx.BranchRank(self._workdir, self.cfg.unmerged_penalty)
+        return self._branch_rank
 
     def write(self, *a, **kw):
         """Write, then run a consolidation pass if one is due. Returns (WriteResult, report|None)."""
+        st = self.branch_rank.st
+        if st and "branch" not in kw:
+            kw["branch"], kw["commit"] = st.branch, st.commit
         res = self.writer.write(*a, **kw)
         rep = None
         if not res.rejected and not res.degraded and self.consolidator.due():

@@ -1,0 +1,75 @@
+{
+ "about": "Work-status notes (what is in progress, next steps, todos) vs durable facts, decisions and dated events. status must be rejected at write time, keep must be stored. keep rows quote SpaceMaker store notes (ids in keep_ids).",
+ "tune": {
+  "status": [
+   "Next step is to wire the passcode middleware into the LAN export route.",
+   "Currently working on the thumbnail cache rewrite; the gallery index migration is still to do.",
+   "TODO: add vitest coverage for gps.ts and then update the Components screen.",
+   "Focus this week: finish the macOS DMG packaging and fix the AppImage CI.",
+   "The migration to aiosqlite is in progress; about half of the gallery queries are converted.",
+   "Blocked on the code-grader FAIL for the export spec; waiting for the user to approve the new wireframe.",
+   "Remaining work: documentation for the passcode feature, release notes, and the Windows installer test.",
+   "We are still debugging the FUSE unmount failure; no root cause found yet.",
+   "Status: Phase 3 tests are written, Phase 4 implementation has not started.",
+   "Still need to decide how to handle HEIC sidecar files; will look at it tomorrow.",
+   "Open items: tool catalog sha256 pinning, ADB root listing speed-up, LAN delete.",
+   "I'm halfway through the typing pass of web/src; the next files are gps.ts and gallery.ts.",
+   "The branch feature/passcode is half done: the middleware exists, the settings screen does not.",
+   "Next: run the quality gate, fix the ruff errors, then open the pull request.",
+   "Work in progress: moving ManagedToolsService into bootstrap/services."
+  ],
+  "keep": [
+   "As of 2026-10-03, SpaceMaker code uses tabs for indentation in Python and all project source files, not spaces (hard rule in AGENTS.md).",
+   "In SpaceMaker, \"implement the plan\", \"complete all todos\", an attached plan file or plan-mode approval is not design or spec approval; approval must be given explicitly in chat (AGENTS.md hard rule).",
+   "SpaceMaker keeps a git-tracked memory bank in memory/ per branch: at session start read memory/activeContext.md then memory/progress.md; decisions.md is append-only newest-first and must never be rewritten.",
+   "In SpaceMaker, never add worktree cleanup or deletion tasks to tracked memory files, because that is per-developer local hygiene and causes merge noise.",
+   "SpaceMaker test naming: every test is named test_given_<state>_when_<action>_then_<outcome> with matching # given / # when / # then comment sections.",
+   "SpaceMaker's mkdocs docs build must stay warning-free (decided 2026-09-30 when the MCP packages moved out to PyPI releases 0.1.1).",
+   "On 2026-10-02 SpaceMaker added an optional LAN network passcode implemented as access control (salted scrypt passcode plus HMAC login cookie in one inbound middleware), not AES encryption, because phones load http://<lan-ip> which is not a secure context and has no WebCrypto, and ffmpeg/avifenc/thumbnails need plaintext files.",
+   "On 2026-10-02 SpaceMaker changed as-is move duplicate detection: _move_to_folder drops the source only if files_have_same_content (size plus 1 MiB chunk comparison is identical), otherwise it writes `name (2).ext`; this corrected the earlier rule that same size means duplicate, which could drop a different file.",
+   "On 2026-10-02 SpaceMaker changed mount directory cleanup to use rmdir only, never shutil.rmtree, because rmtree on a FUSE mount whose unmount failed would delete real phone files.",
+   "Gotcha found on 2026-10-02: ffmpeg's out_time_ms progress value is in microseconds, which made H.264 export progress jump to 99%.",
+   "On 2026-10-02 the SpaceMaker AppImage CI on Ubuntu 24.04 needs libasound2t64 instead of libasound2, and dist/ must be created before packing on a clean checkout.",
+   "On 2026-10-01 SpaceMaker decided macOS builds use ad-hoc `codesign -s -` only; Developer ID, notarization and universal2 builds stay out of scope because no Apple developer account is used.",
+   "On 2026-09-30 SpaceMaker moved the codenav-mcp, webnav-mcp and mcp-nav-shared packages out of the repo into their own repositories and now depends on the PyPI releases.",
+   "On 2026-09-29 SpaceMaker completed a full typing pass of web/src/*.ts: dropped the R registry and @ts-nocheck, every export has explicit parameter and return types, and tests/unit/test_web_typing.py guards these conventions.",
+   "On 2026-09-27 SpaceMaker removed MTP support and uses ADB plus adbfs for Android and AFC plus ifuse for iPhone USB access; adbfs mounts are lazy and the app never FUSE-walks on every snapshot.",
+   "On 2026-10-03 SpaceMaker decided that current state (focus, next steps) lives only in memory/activeContext.md and memory/progress.md, dated facts that stay true live in jevmem, and rules live in AGENTS.md, because status notes in jevmem go stale silently and rules are already in context.",
+   "On 2026-10-03 the team decided that status lives in memory/progress.md and not in jevmem.",
+   "On 2026-10-02 the passcode middleware was finished and merged; it exempts /api/unlock only.",
+   "The aiosqlite migration was completed on 2026-09-28.",
+   "Convention: write TODO comments only with an issue number.",
+   "Gotcha: the vitest run fails if jsdom is older than 25."
+  ]
+ },
+ "holdout": {
+  "status": [
+   "At the moment I'm refactoring the encoder selection; the GPU fallback list is not finished.",
+   "Next steps: benchmark the new thumbnailer, then compare with the old output sizes.",
+   "The release is almost ready; we are waiting on the macOS notarization question.",
+   "Todo list: rename converted/ everywhere, update the docs, rerun the migration test.",
+   "Currently investigating why adb pull stalls on large videos; suspect the USB cable.",
+   "Pending: the user still has to review the SDD spec for the share-link feature.",
+   "The webnav port is nearly done; only the selector tests are left.",
+   "We have not yet chosen between SQLite FTS and a custom index for gallery search."
+  ],
+  "keep": [
+   "SpaceMaker follows Spec-Driven Development (SDD) and Hexagonal Architecture, and AGENTS.md requires following the Phase Gate Protocol for every feature or architectural change.",
+   "In SpaceMaker one gate is passed per explicit approval: do not batch Phase 0 to Phase 4 in one run, and after the wireframe end the turn and wait.",
+   "SpaceMaker quality gate is `uv run task checks` (ruff, ty, pytest) in scripts/quality/checks.py, plus Biome and tsc via `npm ci && npm run check` for web JS/TS.",
+   "SpaceMaker never uses CPU video encoders: it encodes video with GPU hardware only (priority av1_nvenc, av1_qsv, av1_vaapi, h264_nvenc, h264_qsv, h264_vaapi) and moves the source unchanged when no hardware encoder exists.",
+   "SpaceMaker stores the network passcode record in its own network_passcode.json file with mode 0600 so that Clear preferences and Reset library never disable the passcode.",
+   "On 2026-10-02 SpaceMaker made Move mode delete the device file only after the local file size equals the remote size, because destructive operations need positive verification first.",
+   "On 2026-10-02 SpaceMaker deliberately left open: tool catalog sha256 pinning (needs real downloads to compute hashes), ADB list-all-roots speed-up, and LAN delete/export auth beyond the passcode.",
+   "Benchmark recorded on 2026-09-30: webnav-ts-mcp starts cold in 103 ms versus 528 ms for the Python webnav-mcp, and uses 359 MiB versus 477 MiB of memory.",
+   "On 2026-09-29 SpaceMaker's codenav and webnav MCP servers select the workspace per request (pinned *_MCP_WORKSPACE env, else the client's MCP roots from the same git repo, else CLAUDE_PROJECT_DIR or cwd), because Claude Code starts the servers once from the main checkout even in a linked worktree.",
+   "On 2026-09-28 SpaceMaker made `uv run task checks` run natively without requiring bash.",
+   "On 2026-09-28 SpaceMaker chose progressive AVIF via avifenc directly; ImageMagick (Magick) stays required for thumbnails, friendly JPEG, identify and rasterizing formats avifenc cannot read.",
+   "User preference of Daniel (SpaceMaker owner), stated in AGENTS.md: always keep layer boundaries and tests even when a change feels trivial, and prefer conventions and clear abstractions over one-off fixes.",
+   "On 2026-10-01 the team finished the DMG packaging script and merged it to main.",
+   "Decision on 2026-09-30: SpaceMaker will not support HEVC outputs.",
+   "Gotcha: avifenc fails silently when the output directory does not exist.",
+   "The next release version is always bumped in pyproject.toml by the release workflow."
+  ]
+ }
+}

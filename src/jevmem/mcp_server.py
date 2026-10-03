@@ -7,6 +7,7 @@ import os
 import threading
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from .service import Service
 
@@ -16,11 +17,17 @@ _lock = threading.Lock()   # sync tools run on any worker thread: one SQLite con
 
 
 def tool(fn):
-    """`mcp.tool()` that serializes calls, so concurrent tool calls never interleave on the shared connection."""
+    """`mcp.tool()` that serializes calls (concurrent tool calls never interleave on the shared connection) and
+    reports a crash as a `ToolError`: the SDK hides any other exception from the client ("Error executing tool X")."""
     @functools.wraps(fn)
     def locked(*args, **kwargs):
         with _lock:
-            return fn(*args, **kwargs)
+            try:
+                return fn(*args, **kwargs)
+            except ToolError:
+                raise
+            except Exception as e:
+                raise ToolError(f"{type(e).__name__}: {e}") from e
     return mcp.tool()(locked)
 
 
@@ -52,6 +59,15 @@ def memory_write(content: str, scope: str | None = None, entities: list[str] | N
             "consolidation": dataclasses.asdict(rep) if rep else None}
 
 
+def _hint(r) -> str | None:
+    """Lite answered and says the evidence is incomplete: a missing link between facts is something only graph
+    expansion (full mode) can find, and lite cannot tell which kind of gap it has."""
+    if r.sufficient is False and r.stop_reason == "lite":
+        return ("memory may be missing part of the answer. If the answer joins several facts, rerun with "
+                "mode='full'; otherwise check the code/docs")
+    return None
+
+
 @tool
 def memory_recall(query: str, scope: str | None = None, max_items: int = 8, mode: str | None = None) -> dict:
     """Adaptive recall. Check `sufficient`/`missing`: if sufficient is false, the memory may lack the answer,
@@ -63,9 +79,9 @@ def memory_recall(query: str, scope: str | None = None, max_items: int = 8, mode
     r = svc().retriever.recall(query, [_scope(scope)] if (scope or os.environ.get("JEVMEM_SCOPE")) else None,
                                max_items, mode)
     return {"evidence": [{"id": e.id, "content": e.content, "timestamp": e.timestamp, "scope": e.scope,
-                          "score": round(e.score, 2)} for e in r.evidence],
+                          "score": round(e.score, 2), "flags": e.flags} for e in r.evidence],
             "sufficient": r.sufficient, "missing": r.missing, "degraded": r.degraded,
-            "stop_reason": r.stop_reason, "jev_calls": r.jev_calls}
+            "stop_reason": r.stop_reason, "jev_calls": r.jev_calls, "hint": _hint(r)}
 
 
 @tool

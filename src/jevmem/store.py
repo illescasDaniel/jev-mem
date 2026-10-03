@@ -82,6 +82,8 @@ class Node:
     source: str | None = None
     embedding: np.ndarray | None = field(default=None, repr=False)
     created: float | None = None         # when it was written (not when the fact happened)
+    branch: str | None = None            # git branch and commit the note was written on (None: unknown)
+    commit: str | None = None
 
 
 @dataclass
@@ -120,10 +122,17 @@ class Store:
           p REAL NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created REAL NOT NULL, result_id INTEGER);
         CREATE TABLE IF NOT EXISTS node_entities(node_id INTEGER NOT NULL, entity TEXT NOT NULL,
           PRIMARY KEY(node_id, entity));
+        CREATE TABLE IF NOT EXISTS judged(a INTEGER NOT NULL, b INTEGER NOT NULL, PRIMARY KEY(a, b));
+        CREATE TABLE IF NOT EXISTS usage(node_id INTEGER PRIMARY KEY, hits INTEGER NOT NULL, last_hit REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS pair_queue(a INTEGER NOT NULL, b INTEGER NOT NULL, PRIMARY KEY(a, b));
         CREATE INDEX IF NOT EXISTS node_entities_e ON node_entities(entity);
         CREATE INDEX IF NOT EXISTS nodes_scope ON nodes(scope);
         CREATE INDEX IF NOT EXISTS nodes_ts ON nodes(ts);
         """)
+        cols = {r["name"] for r in self.db.execute("PRAGMA table_info(nodes)")}
+        for col in ("git_branch", "git_commit"):          # databases made before notes recorded where they were written
+            if col not in cols:
+                self.db.execute(f"ALTER TABLE nodes ADD COLUMN {col} TEXT")
         self.embedder = embedder or self._choose_embedder(switch_embedder)
         self._backfill_entities()
         dim = int(self.embedder.embed(["dim"]).shape[1])
@@ -151,14 +160,17 @@ class Store:
 
     # -- nodes ---------------------------------------------------------------
     def add_node(self, content: str, scope: str = "global", timestamp: float | None = None,
-                 entities: list[str] | None = None, source: str | None = None) -> int:
+                 entities: list[str] | None = None, source: str | None = None, branch: str | None = None,
+                 commit: str | None = None) -> int:
         emb = self.embedder.embed([content])[0].astype(np.float32)
         # never reuse the id of a deleted note: consolidation watermarks and edges refer to ids
         top = self.db.execute("SELECT COALESCE(MAX(id), 0) FROM nodes").fetchone()[0]
         nid = max(top, self.meta_get("max_node_id")) + 1
         self.db.execute(
-            "INSERT INTO nodes(id,content,scope,ts,entities,source,emb,created) VALUES(?,?,?,?,?,?,?,?)",
-            (nid, content, scope, timestamp, json.dumps(entities or []), source, emb.tobytes(), time.time()))
+            "INSERT INTO nodes(id,content,scope,ts,entities,source,emb,created,git_branch,git_commit) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (nid, content, scope, timestamp, json.dumps(entities or []), source, emb.tobytes(), time.time(),
+             branch, commit))
         self.meta_set("max_node_id", nid)
         self.db.execute("INSERT INTO fts(rowid, content) VALUES(?,?)", (nid, content))
         self._index_entities(nid, entities or [])
@@ -211,6 +223,9 @@ class Store:
         self.db.execute("DELETE FROM edges WHERE src=? OR dst=?", (nid, nid))
         self.db.execute("DELETE FROM pending WHERE node_id=?", (nid,))
         self.db.execute("DELETE FROM flags WHERE node_id=? OR other_id=?", (nid, nid))
+        self.db.execute("DELETE FROM usage WHERE node_id=?", (nid,))
+        for t in ("judged", "pair_queue"):
+            self.db.execute(f"DELETE FROM {t} WHERE a=? OR b=?", (nid, nid))
         for it in self.synth_items():       # a proposal that mentions a deleted note is void
             if nid in it["node_ids"]:
                 self.db.execute("UPDATE synth SET status='dismissed' WHERE id=?", (it["id"],))
@@ -221,7 +236,8 @@ class Store:
     def _node(r: sqlite3.Row) -> Node:
         return Node(r["id"], r["content"], r["scope"], r["ts"], json.loads(r["entities"]),
                     json.loads(r["type_scores"]) if r["type_scores"] else None, r["source"],
-                    np.frombuffer(r["emb"], dtype=np.float32) if r["emb"] else None, r["created"])
+                    np.frombuffer(r["emb"], dtype=np.float32) if r["emb"] else None, r["created"],
+                    r["git_branch"], r["git_commit"])
 
     def get(self, nid: int) -> Node | None:
         r = self.db.execute("SELECT * FROM nodes WHERE id=?", (nid,)).fetchone()
@@ -258,6 +274,17 @@ class Store:
     def nodes_of_type(self, types: tuple[str, ...], min_score: float, scopes: list[str] | None) -> list[Node]:
         cond = " OR ".join(f"json_extract(type_scores, '$.{t}') >= ?" for t in types)
         return self._query(f"type_scores IS NOT NULL AND ({cond})", [min_score] * len(types), scopes)
+
+    def bump_usage(self, ids) -> None:
+        """Count a note as useful once more (the prompt hook injected it, or recall judged it relevant)."""
+        now = time.time()
+        with self.db:
+            self.db.executemany("INSERT INTO usage(node_id, hits, last_hit) VALUES(?, 1, ?) "
+                                "ON CONFLICT(node_id) DO UPDATE SET hits = hits + 1, last_hit = excluded.last_hit",
+                                [(i, now) for i in ids])
+
+    def usage(self) -> dict[int, int]:
+        return dict(self.db.execute("SELECT node_id, hits FROM usage").fetchall())
 
     def count(self) -> int:
         return self.db.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
@@ -381,6 +408,30 @@ class Store:
     def flags_of(self, nid: int) -> list[tuple[str, int, float]]:
         return [(r["flag"], r["other_id"], r["p"]) for r in
                 self.db.execute("SELECT * FROM flags WHERE node_id=?", (nid,))]
+
+    # -- consolidation pairs: which pairs were judged, and which co-retrieved pairs still wait for a judgement ----
+    def mark_judged(self, a: int, b: int) -> None:
+        a, b = sorted((a, b))
+        self.db.execute("INSERT OR IGNORE INTO judged VALUES(?,?)", (a, b))
+        self.db.execute("DELETE FROM pair_queue WHERE a=? AND b=?", (a, b))
+        self.db.commit()
+
+    def queue_pairs(self, pairs: list[tuple[int, int]], max_size: int) -> int:
+        """Queue pairs not judged yet (up to `max_size` waiting in total). Returns how many were added."""
+        room, added = max_size - self.db.execute("SELECT COUNT(*) FROM pair_queue").fetchone()[0], 0
+        for a, b in pairs:
+            a, b = sorted((a, b))
+            if added >= room or self.db.execute("SELECT 1 FROM judged WHERE a=? AND b=?", (a, b)).fetchone():
+                continue
+            added += self.db.execute("INSERT OR IGNORE INTO pair_queue VALUES(?,?)", (a, b)).rowcount
+        self.db.commit()
+        return added
+
+    def queued_pairs(self, limit: int) -> list[tuple[int, int]]:
+        return [(r["a"], r["b"]) for r in self.db.execute("SELECT a, b FROM pair_queue ORDER BY rowid LIMIT ?", (limit,))]
+
+    def clear_judged(self) -> None:
+        self.db.execute("DELETE FROM judged"); self.db.execute("DELETE FROM pair_queue"); self.db.commit()
 
     # -- System-Two synthesis queue ----------------------------------------------
     def add_synth(self, kind: str, node_ids: list[int], p: float) -> int | None:

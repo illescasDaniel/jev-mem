@@ -41,10 +41,9 @@ class Decider(Protocol):
 class JevDecider:
     def __init__(self, model: str | None = None, timeout: float = 60.0):
         from dotenv import load_dotenv
-        from typesafe_sdk import TypeSafeClient
 
         load_dotenv()
-        self._client = TypeSafeClient()
+        self._client = None             # created on first use, so commands that never ask Jev need no API key
         self._model, self._timeout = model, timeout
         self.calls = 0
         self.input_tokens = 0
@@ -61,6 +60,9 @@ class JevDecider:
               for k, q in questions.items()}
         t = time.time()
         try:
+            if self._client is None:
+                from typesafe_sdk import TypeSafeClient
+                self._client = TypeSafeClient()
             r = self._client.system_one(state=state, questions=qs, model=self._model,
                                         timeout=self._timeout)
         except TypeSafeError as e:

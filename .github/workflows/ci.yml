@@ -1,13 +1,69 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the git-awareness tests build their own repos, but keep full history anyway
       - uses: astral-sh/setup-uv@v5
-      - run: uv sync --python ${{ matrix.python }} --extra index
+      - name: Configure git identity for the branch-aware tests
+        shell: bash
+        run: |
+          git config --global user.name ci
+          git config --global user.email ci@example.com
+          git config --global init.defaultBranch main
+      # pgserver (embedded Postgres, tests only) has no Windows wheel: skip it there, its tests importorskip.
+      - name: Install (Linux, macOS)
+        if: runner.os != 'Windows'
+        run: uv sync --python ${{ matrix.python }} --extra index
+      - name: Install (Windows)
+        if: runner.os == 'Windows'
+        run: uv sync --python ${{ matrix.python }} --extra index --no-install-package pgserver
       - run: uv run pytest -q
+
+  install-smoke:
+    name: clean install of the built wheel (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+      - name: Install the wheel into an empty venv and exercise the entry points without a Jev key
+        shell: bash
+        env:
+          JEVMEM_DB: ${{ runner.temp }}/smoke.db
+          JEVMEM_SCOPE: project:smoke
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then BIN="$RUNNER_TEMP/venv/Scripts"; else BIN="$RUNNER_TEMP/venv/bin"; fi
+          uv pip install --python "$BIN/python" dist/*.whl
+          cd "$RUNNER_TEMP"                               # away from the checkout: nothing may depend on the repo
+          "$BIN/jevmem" --help > /dev/null
+          "$BIN/jevmem" stats
+          # With no key the hooks must fail open: exit 0 and print nothing harmful.
+          echo '{"cwd": "."}' | "$BIN/jevmem" hook session-start
+          echo '{"cwd": ".", "prompt": "what database does the shop use?"}' | "$BIN/jevmem" hook user-prompt
+          "$BIN/python" - <<'PY'
+          import asyncio
+          from jevmem import mcp_server
+          tools = asyncio.run(mcp_server.mcp.list_tools())
+          names = {t.name for t in tools}
+          assert {"memory_write", "memory_recall", "memory_list", "memory_forget"} <= names, names
+          print(sorted(names))
+          PY

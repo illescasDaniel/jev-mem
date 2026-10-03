@@ -39,6 +39,7 @@ class RecallResult:
     stop_reason: str = ""
     routing: dict[str, float] = field(default_factory=dict)
     assess: dict[str, float] = field(default_factory=dict)   # last stop-check values (for threshold tuning)
+    judged: dict[int, float] = field(default_factory=dict)   # lite: relevance of every candidate it judged (full reuses it)
 
 
 def largest_remainder(total: float, weights: dict[str, float]) -> dict[str, int]:
@@ -66,8 +67,9 @@ def escalation(lite: RecallResult, cfg: Config) -> str | None:
 
 
 class Retriever:
-    def __init__(self, store: Store, decider: Decider, config: Config | None = None):
+    def __init__(self, store: Store, decider: Decider, config: Config | None = None, penalty=None):
         self.store, self.decider, self.cfg = store, decider, config or Config()
+        self.penalty = penalty or (lambda node: 1.0)     # Node -> score multiplier (e.g. `gitctx.BranchRank.penalty`)
 
     def needs_memory(self, query: str) -> float:
         """Cheap gate for hooks: P(query depends on prior knowledge). Fails open (1.0)."""
@@ -80,8 +82,26 @@ class Retriever:
     def recall(self, query: str, scopes: list[str] | None = None, k: int | None = None,
                mode: str | None = None) -> RecallResult:
         """mode (default `Config.recall_mode`, "auto"): "full" = route, graph expansion, stop rule; "lite": see recall_lite;
-        "auto" = lite, rerun in full when `escalation` says so."""
+        "auto" = lite, rerun in full when `escalation` says so. Similar notes returned together are queued for the
+        next consolidation pass (no Jev call here)."""
+        res = self._recall(query, scopes, k, mode)
+        self._queue_coretrieved(res)
+        return res
+
+    def _queue_coretrieved(self, res: RecallResult) -> None:
+        cfg = self.cfg
+        nodes = [n for n in (self.store.get(e.id) for e in res.evidence) if n is not None and n.embedding is not None]
+        pairs = sorted(((float(a.embedding @ b.embedding), a.id, b.id) for i, a in enumerate(nodes) for b in nodes[i + 1:]),
+                       reverse=True)
+        stale = self.store.stale()
+        self.store.queue_pairs([(a, b) for sim, a, b in pairs[:5]
+                                if sim >= cfg.coretrieved_similarity and a not in stale and b not in stale],
+                               cfg.pair_queue_max)
+
+    def _recall(self, query: str, scopes: list[str] | None, k: int | None, mode: str | None) -> RecallResult:
         mode = mode or self.cfg.recall_mode
+        if mode not in ("lite", "full", "auto"):
+            raise ValueError(f"unknown recall mode {mode!r}: use 'lite', 'full' or 'auto'")
         if mode == "lite":
             return self.recall_lite(query, scopes, k)
         if mode == "auto":
@@ -91,14 +111,19 @@ class Retriever:
             if why is None:
                 lite.stop_reason = "lite"
                 return lite
-            res = self.recall(query, scopes, k, mode="full")
-            res.jev_calls += lite.jev_calls
+            res = self._recall_full(query, scopes, k, lite.jev_calls, lite.judged if lite.evidence else None)
             res.stop_reason = f"escalated:{why}>{res.stop_reason}"
             return res
+        return self._recall_full(query, scopes, k)
+
+    def _recall_full(self, query: str, scopes: list[str] | None, k: int | None, calls: int = 0,
+                     prejudged: dict[int, float] | None = None) -> RecallResult:
+        """Full mode. `calls` = Jev calls already spent on this question (lite, when escalating): they count against
+        `max_jev_calls`. `prejudged` = relevance lite already judged: those anchors are not judged again."""
         cfg, k = self.cfg, k or self.cfg.top_k
         scopes = scopes and list(dict.fromkeys([*scopes, "global"]))
         hidden = set(self.store.pending(UNSCREENED))
-        t0, calls = time.time(), 0
+        t0 = time.time()
         anchors = self._anchors(query, scopes, hidden)
         sims = {i: s for i, s in self._vec(query, scopes, hidden)}
         score = {i: sims.get(i, 0.0) for i, _ in anchors}
@@ -110,8 +135,7 @@ class Retriever:
 
         def finish(reason: str) -> RecallResult:
             for i in score:
-                if i in old:
-                    score[i] *= cfg.superseded_penalty
+                score[i] *= (cfg.superseded_penalty if i in old else 1.0) * self.penalty(self.store.get(i))
             top = sorted(score, key=lambda i: -score[i])[:k]
             res.evidence = [self._ev(i, score[i], via[i]) for i in top]
             res.jev_calls, res.stop_reason = calls, reason
@@ -133,17 +157,19 @@ class Retriever:
 
             # judge anchors: drop weak matches, blend judged relevance into their score
             judged = [i for i, _ in anchors[:cfg.beam_width * 2]]
-            for start in range(0, len(judged), cfg.score_chunk):
-                chunk = judged[start:start + cfg.score_chunk]
+            rels = {i: prejudged[i] for i in judged if prejudged and i in prejudged}
+            todo = [i for i in judged if i not in rels]
+            for start in range(0, len(todo), cfg.score_chunk):
+                chunk = todo[start:start + cfg.score_chunk]
                 a = self.decider.ask(
                     {"query": query, "candidates": [{"content": self.store.get(i).content} for i in chunk]},
                     anchor_questions(len(chunk))); calls += 1
-                for j, i in enumerate(chunk):
-                    rel = a[f"anchor_{j}_relevance"].p
-                    if rel < cfg.min_relevance:
-                        score.pop(i); via.pop(i)
-                    else:
-                        score[i] = (score[i] + rel) / 2
+                rels.update({i: a[f"anchor_{j}_relevance"].p for j, i in enumerate(chunk)})
+            for i in judged:
+                if rels[i] < cfg.min_relevance:
+                    score.pop(i); via.pop(i)
+                else:
+                    score[i] = (score[i] + rels[i]) / 2
             for i in [i for i in score if i not in judged]:
                 score.pop(i); via.pop(i)
             beam = [i for i in beam if i in score]
@@ -186,7 +212,10 @@ class Retriever:
                                 cands[other] = (e.weight, g, nid)
                 if not cands:
                     return finish("frontier_exhausted")
-                scored = self._score_candidates(query, cands, score, via, k, graphs, now, recency)
+                room = cfg.max_jev_calls - calls - 1        # keep one call for the next stop check
+                if room < 1:
+                    return finish("limit:calls/time")
+                scored = self._score_candidates(query, cands, score, via, k, graphs, now, recency, room)
                 calls += scored[1]
                 new = sorted(scored[0].items(), key=lambda kv: -kv[1])[:cfg.beam_width]
                 for i, sc in new:
@@ -225,10 +254,13 @@ class Retriever:
         else:
             rel_min = cfg.min_relevance
         old = self.store.stale()
-        scored = [(i, rel * (cfg.superseded_penalty if i in old else 1.0)) for i, _, rel in judge if rel >= rel_min]
+        scored = [(i, rel * (cfg.superseded_penalty if i in old else 1.0) * self.penalty(self.store.get(i)))
+                  for i, _, rel in judge if rel >= rel_min]
         top = sorted(scored, key=lambda t: -t[1])[:k]
         res.evidence = [self._ev(i, s, "vector") for i, s in top]
         res.jev_calls, res.routing = calls, {"multi_hop": hop, "temporal": tmp}
+        if not res.degraded:
+            res.judged = {i: rel for i, _, rel in judge}
         if not res.degraded:
             res.assess = {"sufficient": suff, "missing": miss, "multi_hop": hop, "temporal": tmp}
             res.sufficient = bool(res.evidence) and suff >= cfg.lite_sufficient and miss < cfg.lite_missing_max
@@ -267,11 +299,15 @@ class Retriever:
         flags = [f"{names[f]}:{o}" for f, o, _ in self.store.flags_of(i) if f in names]
         return Evidence(i, n.content, sc, iso(n.timestamp), n.scope, via, flags)
 
-    def _score_candidates(self, query, cands, score, via, k, graphs, now, recency):
-        """Eq. 23 (+ recency eq. 24-25). Returns ({id: score}, jev_calls)."""
+    def _score_candidates(self, query, cands, score, via, k, graphs, now, recency, room: int | None = None):
+        """Eq. 23 (+ recency eq. 24-25). Returns ({id: score}, jev_calls). Only the `Config.expand_candidates` most
+        promising candidates (edge weight and query similarity) are judged, and at most `room` Jev calls are made."""
         q = self.store.embedder.embed([query])[0]
         ev = self._ev_state(score, via, k)
-        ids, out, calls = list(cands), {}, 0
+        sim = {i: max(0.0, float(self.store.get(i).embedding @ q)) for i in cands}
+        ids = sorted(cands, key=lambda i: -(cands[i][0] + sim[i]))[:self.cfg.expand_candidates or None]
+        ids = ids[:room * self.cfg.score_chunk] if room is not None else ids
+        out, calls = {}, 0
         for start in range(0, len(ids), self.cfg.score_chunk):
             chunk = ids[start:start + self.cfg.score_chunk]
             nodes = [self.store.get(i) for i in chunk]
@@ -281,7 +317,7 @@ class Retriever:
             a = self.decider.ask(state, candidate_questions(len(chunk))); calls += 1
             for j, (i, n) in enumerate(zip(chunk, nodes)):
                 w, g, _ = cands[i]
-                z = max(0.0, float(n.embedding @ q))
+                z = sim[i]
                 s = (z + a[f"candidate_{j}_relevance"].p
                      + graphs[g] * a[f"candidate_{j}_usefulness"].p
                      + a[f"candidate_{j}_new_information"].p

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, replace
 from statistics import mean
 
 from .config import Config
-from .retrieve import RecallResult, Retriever, escalation
+from .retrieve import Retriever
 from .service import Service
 
 SWEEP_SUFF = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
@@ -52,9 +52,11 @@ def build(svc: Service, data: dict) -> dict[str, int]:
 def evaluate(svc: Service, data: dict, ids: dict[str, int], k: int = 5) -> dict[str, list[Row]]:
     scopes = [data["scope"], "global"]
     ret: Retriever = svc.retriever
-    out: dict[str, list[Row]] = {"vector": [], "hybrid": [], "hybrid@3": [], "jevmem-lite": [], "jevmem-flat": [], "jevmem": []}
+    out: dict[str, list[Row]] = {"vector": [], "hybrid": [], "hybrid@3": [], "jevmem-lite": [], "jevmem-flat": [],
+                                 "jevmem": [], "jevmem-auto": []}
     lite = Retriever(svc.store, svc.decider, replace(svc.cfg, recall_mode="lite"))
-    full = Retriever(svc.store, svc.decider, replace(svc.cfg, recall_mode="full"))   # auto is replayed from lite + full
+    full = Retriever(svc.store, svc.decider, replace(svc.cfg, recall_mode="full"))
+    auto = Retriever(svc.store, svc.decider, replace(svc.cfg, recall_mode="auto"))
     flat = Retriever(svc.store, svc.decider, replace(svc.cfg, recall_mode="full", max_depth=0))
     text = lambda i: svc.store.get(i).content
     for item in data["questions"]:
@@ -64,28 +66,13 @@ def evaluate(svc: Service, data: dict, ids: dict[str, int], k: int = 5) -> dict[
             got = ([i for i, _ in svc.store.vector_search(q, scopes, kk)] if name == "vector"
                    else [i for i, _ in ret._anchors(q, scopes, set())[:kk]])
             out[name].append(Row(q, item["kind"], gold, got, sum(len(text(i)) for i in got), time.time() - t))
-        for name, rt in (("jevmem-lite", lite), ("jevmem-flat", flat), ("jevmem", full)):
+        for name, rt in (("jevmem-lite", lite), ("jevmem-flat", flat), ("jevmem", full), ("jevmem-auto", auto)):
             t, c0, i0 = time.time(), svc.decider.calls, getattr(svc.decider, 'input_tokens', 0)
             r = rt.recall(q, [data["scope"]], k)
             got = [e.id for e in r.evidence]
             out[name].append(Row(q, item["kind"], gold, got, sum(len(e.content) for e in r.evidence),
                                  time.time() - t, svc.decider.calls - c0, r.assess or r.routing, r.sufficient,
                                  getattr(svc.decider, 'input_tokens', 0) - i0))
-    out["jevmem-auto"] = auto_rows(out["jevmem-lite"], out["jevmem"], svc.cfg)
-    return out
-
-
-def auto_rows(lite: list[Row], full: list[Row], cfg: Config) -> list[Row]:
-    """`recall_mode="auto"` replayed from the lite and full runs (no extra Jev calls): keep the lite answer unless
-    `retrieve.escalation` says to rerun it in full mode, then use the full answer and pay for both."""
-    out = []
-    for lt, fu in zip(lite, full):
-        r = RecallResult([1] * len(lt.returned), sufficient=lt.sufficient, routing=lt.assess)
-        if escalation(r, cfg) is None:
-            out.append(lt)
-        else:
-            out.append(Row(fu.q, fu.kind, fu.gold, fu.returned, fu.chars, lt.latency + fu.latency, lt.calls + fu.calls,
-                           fu.assess, fu.sufficient, lt.tokens + fu.tokens))
     return out
 
 
@@ -137,7 +124,9 @@ def sweep(rows: list[Row]) -> str:
 
 def run(path: str, k: int = 5, out_json: str | None = None) -> None:
     data = json.load(open(path))
-    svc = Service(":memory:")
+    # the retrieval sets are chat logs and commit subjects, not curated notes: do not screen them for work status
+    # (that screen has its own eval, `jevmem eval-status`)
+    svc = Service(":memory:", config=Config(status_block=2.0))
     t = time.time()
     ids = build(svc, data)
     print(f"built {len(ids)} notes in {time.time() - t:.1f}s ({svc.decider.calls} Jev calls incl. consolidation)\n")
@@ -166,3 +155,22 @@ def run_injection(path: str = "evals/injection.json") -> None:
           f"malicious stored {len(fn)}/{len(res['malicious'])} (false negatives); jev calls={svc.decider.calls}")
     for _, why, t in fp: print(f"  FP ({why}) {t}")
     for _, _, t in fn: print(f"  FN {t}")
+
+
+def run_status(path: str = "evals/status.json") -> None:
+    """Status-note screen: work-status notes must be rejected at write time, durable facts and dated events kept.
+    Prints the typing call's `status` probability per note and the errors at `Config.status_block`."""
+    from .questions import typing_questions
+    data, svc = json.load(open(path)), Service(":memory:")
+    th = svc.cfg.status_block
+    for split in ("tune", "holdout"):
+        scored = {kind: [(svc.decider.ask({"observation": t}, typing_questions())["status"].p, t)
+                         for t in data[split][kind]] for kind in ("status", "keep")}
+        miss = [x for x in scored["status"] if x[0] < th]
+        blocked = [x for x in scored["keep"] if x[0] >= th]
+        print(f"{split}: threshold {th}: status stored {len(miss)}/{len(scored['status'])} (false negatives), "
+              f"keep blocked {len(blocked)}/{len(scored['keep'])} (false positives)")
+        print(f"  status p range {min(p for p, _ in scored['status']):.2f}-{max(p for p, _ in scored['status']):.2f}, "
+              f"keep p range {min(p for p, _ in scored['keep']):.2f}-{max(p for p, _ in scored['keep']):.2f}")
+        for p, t in miss: print(f"  FN {p:.2f} {t[:110]}")
+        for p, t in blocked: print(f"  FP {p:.2f} {t[:110]}")

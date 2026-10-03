@@ -101,3 +101,42 @@ def test_auto_escalates_temporal_questions():
     s, _, _ = build()
     r = Retriever(s, FakeDecider(t_rule), Config(recall_mode="auto"))
     assert r.recall("bicycle when", ["project:x"]).stop_reason.startswith("escalated:temporal")
+
+
+def _many_linked(rule_fn, **cfg):
+    s, d = Store(), FakeDecider(rule_fn)
+    ids = [s.add_node(f"bicycle part {n} is stored in bin {n}", "project:x") for n in range(40)]
+    for a, b in zip(ids, ids[1:]):
+        s.add_edge(a, b, "semantic", 0.9)
+        s.add_edge(b, a, "semantic", 0.9)
+    return s, d, Retriever(s, d, Config(**cfg))
+
+
+def _never_sufficient(state, key, q):
+    if key in ("multi_hop", "temporal"):
+        return 0.9
+    if key in ("evidence_sufficient", "missing_evidence", "contradiction"):
+        return 0.0 if key != "missing_evidence" else 0.9
+    if key == "continue_useful" or key == "semantic":
+        return 0.9
+    return 0.8      # every relevance/usefulness question
+
+
+def test_jev_call_cap_holds_for_full_and_for_escalated_auto():
+    for mode in ("full", "auto"):
+        s, d, r = _many_linked(_never_sufficient, max_jev_calls=6)
+        res = r.recall("bicycle part 3", ["project:x"], mode=mode)
+        assert res.jev_calls <= 6 and d.calls <= 6, (mode, res.jev_calls, d.calls)
+        assert res.stop_reason.endswith("limit:calls/time")
+
+
+def test_escalation_reuses_lites_relevance_instead_of_judging_anchors_again():
+    def hop_rule(state, key, q):
+        return 0.9 if key == "multi_hop" and "goal" in state else rule(state, key, q)
+    s, _, _ = build()
+    d = FakeDecider(hop_rule)
+    res = Retriever(s, d, Config(recall_mode="auto")).recall("bicycle tyres", ["project:x"])
+    assert res.stop_reason.startswith("escalated:multi_hop")
+    asked = [k for _, qs in d.log for k in qs]
+    assert not any(k.startswith("anchor_") for k in asked)       # lite already judged every anchor
+    assert any(k == "multi_hop" for k in asked)

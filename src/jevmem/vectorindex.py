@@ -40,8 +40,13 @@ class MatrixIndex:
         self.ids = np.zeros(0, dtype=np.int64); self.codes = np.zeros(0, dtype=np.int32); self.scope_code: dict[str, int] = {}
         self.mat = np.zeros((0, 0), dtype=np.float32)
         self._n = 0
+        self._dv = None
+
+    def _data_version(self) -> int:
+        return self.db.execute("PRAGMA data_version").fetchone()[0]    # bumped only by commits of OTHER connections
 
     def _load(self) -> None:
+        self._dv = self._data_version()
         rows = self.db.execute("SELECT id, scope, emb FROM nodes WHERE emb IS NOT NULL ORDER BY id").fetchall()
         self.ids = np.array([r[0] for r in rows], dtype=np.int64)
         self.scope_code = {}
@@ -68,7 +73,7 @@ class MatrixIndex:
         self._loaded = False                          # rare; cheapest correct thing is to reload lazily
 
     def search(self, q, scopes, k, exclude=frozenset()):
-        if not self._loaded:
+        if not self._loaded or self._data_version() != self._dv:     # another process (hook, CLI) wrote or deleted notes
             self._load()
         if self._n == 0:
             return []

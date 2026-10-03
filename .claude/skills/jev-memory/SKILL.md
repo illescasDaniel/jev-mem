@@ -14,7 +14,8 @@ tools (`jev_screen`, `jev_verify`, `jev_gate`, ...) see the jev-mcp skill. This 
 jevmem is one of three places knowledge lives. Keep them from overlapping:
 - **Current state** (focus, work in progress, blockers, next steps) goes in the repo's git-tracked markdown files,
   e.g. `memory/activeContext.md` / `memory/progress.md`, if the project has them. They follow the branch and are
-  reviewed in PRs. **Never write current state to jevmem**: "next step is X" goes stale silently.
+  reviewed in PRs. **Never write current state to jevmem**: "next step is X" goes stale silently, so `memory_write`
+  rejects notes that read as work status (restate them as a dated fact if something lasting happened).
 - **Dated facts that stay true** (decisions with reasons, bug causes, gotchas, preferences) go in jevmem.
 - **Rules** the agent must always follow go in `AGENTS.md` / `CLAUDE.md`, not in jevmem: they are already in context.
 

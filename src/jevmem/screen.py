@@ -21,6 +21,24 @@ _REMOTE_EXEC = re.compile(r"(?i)(\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(ba|z)?sh\b
                           r"|\beval\s*\(|\bchmod\s+\+x\b[^\n]*&&|\bssh-(rsa|ed25519)\s+AAAA)")
 
 
+MAX_CAPTURE_CHARS = 300      # a standing preference fits in a sentence or two; longer prompts are requests or discussion
+MAX_CAPTURE_SENTENCES = 2
+
+
+def capture_shape_problem(text: str) -> str | None:
+    """Why a prompt is not shaped like a standing preference (None = fine). A whole chat message (several
+    paragraphs, a question, a list of requests) was once stored verbatim and then injected at every session."""
+    if len(text) > MAX_CAPTURE_CHARS:
+        return "too long to be one preference"
+    if re.search(r"\n\s*\n", text) or "\n" in text.strip():
+        return "spans several lines"
+    if "?" in text:
+        return "asks a question"
+    if len([s for s in re.split(r"(?<=[.!])\s+", text) if s.strip()]) > MAX_CAPTURE_SENTENCES:
+        return "too many sentences"
+    return None
+
+
 def secret_kind(text: str) -> str | None:
     for kind, rx in _SECRETS:
         if rx.search(text):
@@ -36,7 +54,7 @@ def autocapture_problem(text: str) -> str | None:
         return "contains a remote-execution command"
     if _RELATIVE_TIME.search(text):
         return "uses relative dates (notes need absolute dates)"
-    return None
+    return capture_shape_problem(text)
 
 
 def normalize(text: str) -> str:

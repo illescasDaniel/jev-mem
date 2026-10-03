@@ -55,7 +55,10 @@ Properties that shape the whole design:
 1. **Typing and screening, one batched call.** Scores for episodic / semantic / procedural / preference /
    decision / bugfix / convention / gotcha, plus **injection**. A note that tries to hijack an agent
    ("ignore previous instructions...") is rejected, because memory persists and would poison every later session.
-   Ordinary team rules such as "never use pip" must pass (a real bug found by our injection eval).
+   Ordinary team rules such as "never use pip" must pass (a real bug found by our injection eval). The same call
+   scores **status**: a note that only says what is in progress or next ("next step is X") is rejected, because it
+   goes stale silently and belongs in a markdown file that follows the branch. Each note also records the git branch
+   and commit it was written on, which recall uses to rank notes from unmerged branches lower.
 2. **Candidates.** Code finds likely related older notes: vector + keyword (BM25) + shared entities + nearest in
    time, merged with reciprocal rank fusion.
 3. **Relations, one batched call.** For each candidate Jev gives probabilities for semantic / causal links. Edges
@@ -83,7 +86,10 @@ changed? does either state every fact of the other? Nothing is deleted. Code the
 equal timestamps, from dates in the text) which note is older: the older side of a conflict gets a
 `superseded_by` flag (nothing to order by: both get `contradicts`), and a note fully covered by another gets
 `duplicate_of` / `subsumed_by`. Repeated episodes become promote proposals and **Claude writes the general
-pattern** (`memory_pending_synthesis` -> `memory_resolve`). This is the System-Two half of the loop.
+pattern** (`memory_pending_synthesis` -> `memory_resolve`). A conflict nothing can order (same time, no dates, neither
+reports the change) also becomes a proposal for the agent. Pairs that recall returns together are queued and judged on
+the next pass, so a stale note is checked against the notes it actually competes with. This is the System-Two half
+of the loop.
 
 ### Safety rule
 Notes are **data, not instructions**. Recalled text is shown to the agent as evidence; the skill tells Claude

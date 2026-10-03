@@ -1,0 +1,814 @@
+{
+ "prompts": [
+  {
+   "prompt": "we have an mcp to easily look for python code using ty. can we have something similar but for our  javascript web code (and perhaps also for our html and css if possible)?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "can we have add some minimal animations appear more native and not like a website?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "continue please",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "approved, continue",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "please do a quick review of our new MCPs, especially the webnav mcp. see if you can find the correct code and if it works",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "good. let's go. btw, as you will use Biome, please find and fix all errors and warnings too",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "could it be that maybe we are not using typescript and using javascript instead?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "hmm i'm not sure the difference between options 1 and 2",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "okay let's try option 2, then test it to see if you can know successfully find `isDesktopShell` for example",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "let's run checks and fix pytests please",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "no duplication, read the glob from jsconfig.json if that's a good decision, and then try the mcp again to check it works.",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "okay let's do something before commiting. there is a big issue with a rule we had at some point and the latest changes we are doing: we are not using and modifying our project memory! that is catastrophic, because I rely of our project memory so that other agents know what we are doing. we MUST always update our memory not only after we finish a task but also before we start it and when we are completing some of their steps too",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "i though the animations were going to be a bit better compared to our simple wireframe but we need to improve them, because i could access to a photo detail for example in the wiremock and once i did it does it without any animation, like a website, also when using the back/next photo buttons there is no animation and when the image isn't loaded it occupies almost 0 pixels and then the image appears and everything moves -> there should be a placeholder image, the thumbnail + a loading spinner perhaps!; that's a really good idea",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "`Going forward I'll treat the memory-bank triggers as blocking, not optional: update activeContext.md when focus shifts or a step concludes, not only in a final wrap-up pass.` is that in our agents.md? because it is very important",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "i like this, that's the idea. make sure our preview image is the thumbnail (i think we generate a thumbnail for every picture we save (?), if not, we should save a tiny thumbnail and then load the full picture). design is fine, let's advance",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "there is something wrong the the media+info position in the gallery detail, they should be horizontally centered (as before) but they aren't",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "we did some changes to our custom MCPs, please see if they work for you, test them and see if anything can be improved or needs to be fixed",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "we did some changes to our custom MCPs. please test it and see if you could use it fine and if it is helpful for you and returns what you expect",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "claude-sonnet-5",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "fix all the issues",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "implement all phases: B, C, D.",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "then, we did some changes to our custom MCPs. please test it and see if you could use it fine and if it is helpful for you and returns what you expect",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "how would you fix everything?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "mcps should be restarted, verify please",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "awesome, let's fix all of those bugs please",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "reloaded. check",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "where do our custom mcp servers tests live?",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "okay, let's /save-changes after some changes we have done.\n\nthen, can we extract those tests to their own folders inside the mcp-servers folder so that if we decide to release them as stand-alone they can be bundled or how should we approach this?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "i guess you can make a small helper/shared package with its own tests. this would be a dependency upon the other mcp servers packages. you think that's okay?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "we did some changes to our custom MCPs, we are approaching the point where they might be useful also outside this project too. please test them and see if you could use them fine and if it is helpful for you and returns what you expect or if you're still missing something.\nyou could also, for example, attempt to use our MCPs in another project, like `/home/daniel/Projects/Code/Python/srxy`, and see if they work fine or we're missing something",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "let's fix ALL the problems you found and also implement your improvements",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "claude-haiku-4-5-20251001",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "it work. /save-changes",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "update this branch with latest changes from main that fix our checks issues. then /save-changes again and finally /apply-worktree",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "then /apply-worktree",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "(Re-invocation of /agent-memory \u2014 the skill instructions were previously loaded; the arguments or dynamic output below are new.)",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "measure implementations cold vs warm first, then let's do your recommendation.\n\nalso about `I didn't run /new-worktree. This session is already in the mcp-tools-cache-441056 worktree, so I assumed that was how it was started.` if you have already created a worktree, this skill should still work (please modify it) and just copy our .venv and node_modules (.venv copy should be smart, perhaps with a script, since paths won't magically match i guess). maybe do this step first on a subagent before touching our code.",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "`which would take several times the current file count` this is a very small codebase. let's give it a try, let's try to smartly cache it and see if it is worth it and reliable.",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "two separate commits, yes. then let's try more improvements. perhaps `the remaining ~65 ms is the type-check probes implementations runs on each candidate class, which this cache doesn't touch.`. let's also measure all the other tools we have so that we can see which ones perform better or worse",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "`webnav rejects .ts files ``agents can't navigate the authoritative TypeScript. That matters more than any of the latencies above.` absolutely, this is top priority number one. then: `css_var/selector index cache first, then the implementations probe cache, then look at the diagnostics timing`",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "i love the idea. i guess we can give all read-only tools access to this agent including our custom MCPs too (webnav, codenav), whatever read only thing it needs.\n\nabout your questions:\n\n1. `Should the grader be Claude-only?` no, we also need Cursor to do this step and it looks like cursor also supports custom agents so either we copy-paste our agent definition and adjust it for cursor or if we have the exact same file we can symlink it. i prefer copy-past with ai platform-specific syntax. \n2. `Do you want the mechanical-check script now?` yeah if is relatively simple, fast and it works. if it is too unreliable then no. test it.",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "claude-sonnet-5-5",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "amazing job.\n\nspawn a subagent to fix this: `Found in the codebase along the way: .thumb-removing is defined in shell-forms.css:160 and shell-gallery.css:220, but no production HTML or TS ever uses it. The wireframe does add it (app.html:3024), so either the delete animation was never built or the CSS is dead. I logged it as an open item in memory/progress.md.`\n\nmeanwhile, could we have a file where we log every error/bad experience the AI agent has so that we can use it to improve our code or especially the MCPs? maybe it could like inside the memory folder as a new thing, or outside, idk.",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "yes, apply your recommendation",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "spawn a subagent or multiple to fix those issues",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "i like it, spec and architecture approved, begin implementation",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "yes, that's good job. so anything else to do for you or me in this session or we can save our changes?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "i noticed the animation happened too quickly on the real app, faster than the wireframe i think, we should probably fix that",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "okay it works now but after the deleting animation happens, there is a blank/flash that also modifies our scroll position; so that part specifically doesn't feel smooth.",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "good, if everything is finished on our save: /save-changes and /apply-worktree",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "--request-id d321b3c6-1d1c-455f-bd38-e0ba43ba42dd --wizard posture=mixed scope=project depth=shell --propose",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "--expect-sha256 02827cbb01fcd93d9465e4e1df397689aa97e7773cbbcd3a9eb19f3001f74124 --apply-file \"/tmp/ccd-auto-mode-KLvEdU/proposal.json\"",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's first of all git stash whatever we did here or discard it, then create a worktree from the latest main commit (idk why we are so behind, i just created this branch, this is bad...), then re-analyze our plan please",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "`this fresh worktree has no node_modules` but we did use the new-worktree skill and you ignored the part that said to copy or node-modules, no? we should fix this in the skill please, regardless of whether we are on a new worktree or not, we should smartly copy our .venv and node_modules or re-sync our deps if needed",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "let's delete `friction-docs-review-a2284e`.\nthen run checks in this branch (claude/friction-fixes), then /save-changes  without pushing, then /apply-worktree",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "please review our custom MCP tools, we recently did some changes and would like more feedback on them. find bugs, see if you're missing something, etc",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's fix ALL of them, `confirmed bugs` and `smaller issues and gaps`",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "good. mcp restarted. see if all issues are solved now; if not, fix them",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "hmm our mcp tools should work with worktrees too, let's do the proper thing and improve that so that we can make it work in a good a professional manner (no patches,do a proper development for this)",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "Call the mcp probe roots tool and print its output verbatim.",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "reloaded, retry\n\n(btw idk if would just be easier to use a .env with a custom DIR instead of forcing to use CLAUDE_PROJECT_DIR ... but you try what you think is best)",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "`/mcp` doesn't return any zprobe thing",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "what if instead of merging to main you create a feature/mcp_improvements or similar from main and checkout main from our main workspace project, then merge this into that feature branch and you annotate what we have to do so that we pick up where we left off",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "pls let's confirm our mcp works as intented, read active context then\n\n<pasted_content id=\"615e\">\nConfirm it's live: implementations should now accept file_path, and workspace on both servers should report the main checkout.\nCheck worktrees: open a session in a linked worktree and call workspace. It should report the worktree path with source client roots.\nFallback: if it still shows the main checkout, the app isn't answering roots/list, and the notes describe the next approach.\nMerge: once verified, merge into main.\n</pasted_content id=\"615e\">",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "`The configured label is accurate but vague. I can make it show CLAUDE_PROJECT_DIR or cwd instead, as a small follow-up commit, if you want.` perhaps improve it so other agents can understand it better.\n\nalso, let's save and commit our changes and then give me a prompt for cursor to try something similar and see if it works from a worktree too",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "hey everything is done now, we're on main now. about `The first symbol_info call there hit a transient content modified error from the language server. It happened right after the probe edit and the retry worked. I'd treat it as a race with a fresh edit and not act on it. If it recurs on ordinary calls, I'll add it to memory/friction/.` is there anything we can do to fix it?",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "i forked our chat, can you work here now?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's give this branch a try locally. we need to pass all tests for the new typescript webnav port (i guess we do have tests) and we also need to pass all spacemaker checks. before that, could you smartly review our progress and webnav port?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "yes, fix 1-4 and commit. about 5 i'm not sure what you should do, but i have all my MCPs now at ~/Projects/Code/Python/MCPs please fix our python bug/s you found (\"Parity shows the Python version does the same, so this is inherited rather than new.\") and in our port version too",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "check if our mcp port works for you in this session. review if our readme or docs need re-doing. extract our mcp port to /home/daniel/Projects/Code/Python/MCPs/ , create a readme and fill the author and version and license (mit) similar to our python version. after that this repo should not contain that webnav-ts-mcp (this is the repo/package name for our port btw) and you can test it again. after you confirm it should work, then give me instructions on how to upload it to npm so that we can later change in in spacemaker to use it. i also need a report on speed comparison between our python mcp and this one",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "good. published: https://www.npmjs.com/package/webnav-ts-mcp\n\nplease add some \"upload\" script equivalent like we have for our python variants too. i have also restarted mcps so i guess you can try to install this and give it a try to the public version. if it works here then publish our webnav-ts-mcp on github using gh please.\n\nalso: what the hell? we have ~3x faster speeds for our TS version, amazing, no? that is significant!",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "`SpaceMaker configs: I did not switch them to npx yet, so they still point at the local checkout. It's a two-line change plus the docs wording. Say so and I'll do it.` we need to point spacemaker at the public published version.\npublish also a new commit and build for the python fix you did earlier.",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "check if you can finally use the public connected version of webnav-ts-mcp here in this session. if everything is okay and you can use if perfectly then let's /save-changes  and /apply-worktree",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "yes merge into main and push",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "webnav-ts-mcp@0.1.1 is live, can you modify our code to use that version or above? and test if it you can to see if it just works",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "retry pls, \nwebnav-ts-mcp\n0.1.1 \u2022 Public \u2022 Published a few seconds ago\n\nit should be alive now",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "mcps restarted, try",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "run implementations to see if it works\nif everything works then /save-changes",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "do a review of our app code in search for bugs, we are close to the 1.0 release and i want to fix and find some last-minute bugs",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "spec looks good. if all has been implemented (except \"Not done\" things), let's use the code-grader for a final review",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "spec approved. any code change needed?",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "pass the code-grader, fix everything he says. then /save-changes and /apply-worktree",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's plan about implemented something so we can avoid people deleting the \"Gallery\" items or randomly calling endpoints or similar stuff on the same network.\ni'm thinking: a passcode mechanism\nat the home, when we start the app we should have a passcode field floating at the bottom left side perhaps and with an info button (please adjust design so it makes a bit of sense). this passcode would be used to encrypt and decrypt all data, is that possible? using AES encryption perhaps. what do you think?\n\n/sdd-feature",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "a) \"Should the passcode be remembered between launches (stored hashed), or only for the current session as drawn?\" it should be remembered between launches\nb) \"Do you want the passcode to be empty by default, so today's open behaviour stays?\" yes, empty by default",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "wireframe approved",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "design decisions approved",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "spec approved",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "architecture approved",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "spec approved. let's use zeroconf",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "commit and continue",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "architecture OK",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "specs approved",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "well are we following /sdd-feature or what? specs approved, which means: architecture, once architecture is done then we use the code-grader and after all that i review it",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "`Asserting == 200 for the CSS and JS paths would tighten it.` let's do that.\n\nthings to work:\n1) let's also change the copy from \"Active -- remembered; other devices need it\" to just \"Active\"\n2) info button does nothing when clicked",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's add a simple open in maps button next to the location coordinates in the gallery detail screen\n\n/sdd-feature",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "i can't see the button, man, it just says `Location   52.5200\u00b0 N, 13.4050\u00b0 E`\nGoogle Maps would be good",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "remember to create javascript/typescript tests. \nDecisions confirmed",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "hey quickshare is not working, i can't see it on the available devices. can you fix it?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "port open. visibility: contacts, creen on",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "there are no \"nearby devices\" according to the ui",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's publish v1.0. i think you just need to tag it and create a github release so that the installer begin appearing and link to the release?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "CI has failed, fix please",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "read the paper in this folder. analyze and plan how could we use jev for memory and our AI agentic projects to improve the workflow, speed, quality, etc. the plan could be developing a workflow, a tool, mcp, skill, all of that or a different thing.",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "we just published appimage v1.0 with a release but i forgot to add windows and macos support too, let's change our CI and publish 1.0.1 with windows and macos support too",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's add that jev-mcp and let's start draft a README.md with installation instructions, one step would be that claude mcp command, another would be ours but not done yet.\nthen let's start with phase 2",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "good, yes, next phase\n\n(claude cli is now available btw)",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "i think `\"JEVMEM_ENV_FILE\": \"/home/daniel/Projects/Code/Python/Jev-things/.env\"` could just be `\"JEVMEM_ENV_FILE\": \".env\"` ? and argument `\"/home/daniel/Projects/Code/Python/Jev-things\"`just `.`? that way our .mcp.json is reusable easily by others?",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "good. commit files, then start phase 4",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "auto-capture is okay, flag could be enabled by default but documented so people can turn it off.\n\n`The hooks are project-scoped, so they take effect the next time you open this folder in Claude Code. Open it in a fresh session to see them fire, since I can't reload them into this one.` i reopened claude code, idk if it helps or you need a new chat.\n\ncommit after you do your thing and start phase 5",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "good, commit and go with phase 6",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "commit. the evaluation is interesting. let's gitignore our spike scripts, then you can perhaps expand on our evaluation and then save and commit.",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "let's commit changes, then use `LoCoMo subset would need model and data downloads`. also, please explain to me exactly what we are doing, jevmem stores memory or decides what to store? if we decide, where does it end up stored? a sqlite database i heard but could we mix vector databases with ours to have the ultimate memory thing? think about it and try a few things",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's try the vectorindex thing. thing about big projects so we need to be adaptable",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "let's try our ideas in readme.md, especifically these:\n\n```\n- A \"lite\" recall mode: vector top-20 plus a single Jev relevance filter (about a quarter of the cost, most of the gain).\n- Held-out evaluation on more LoCoMo conversations and on real project notes; retune the sufficiency check there.\n- A VectorIndex for LanceDB or pgvector if a team already runs one.\n```",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "mcp restarted, let's see if you can connect to them and use them fully",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "i see. please think about improving all our rough edges that you wrote in memory/mcp-write-tools-trial.md. then try again and if you need it tell me to restart the MCPs. our process of working would be: you try the edit tools, if you you encounter issues or weird behaviors or you think they are too many tools, you just annotate that and we update them and then continue with the fixed version",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "`check_edit overlaps with replace_symbol and insert_symbol, but it is the only one that handles arbitrary text edits.` overlapping tools might pollute context and make the agents feel unsure about which one to use. maybe you can think of unifying some tools and adding parameters instead and documenting those parameters. (still not mcp restart yet, maybe after your edits)",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "about the index benchmark, what do you think we should do? which index should we use or what's the plan here given all our stats?\n\nperhaps you need these before an answer or you can trace which index databases and things to use now? \n\n```\nA cheaper escalation signal for auto: it escalates on about half the questions because \"multi-hop\" and \"temporal\" are common; a calibrated, narrower trigger could save more tokens.\nCalibrate sufficient/missing_max per deployment (see the retune table in the evaluation doc).\n```",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "i guess index tool is configurable so if people want to use qdrant they just have to change auto for that and that's it? let's document that, i like auto (matrix -> sqlite-vec) by default too.\n\nlet's do your two follow ups but let's think about starting to finish our stuff, i mean, i want to release jev-mem and have a good product with a definitive result",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "* add MIT license\n\n* commit all our changes\n\n* pdf is now removed, you can take a look at it here again if you ever need it: /mnt/nas/books/Programming/Jev-mem.pdf\n* yes, beta label with v0.1.0\n* yes, add CI\n* i would love you to try to create a feature branch for SpaceMaker project and use it (/home/daniel/Projects/Code/Python/SpaceMaker/) our goal: test it, see what works, what doesn't, once we are fully satisfied we would upload and publish this jev package (probably under jev-mem name ?), then we would update our feature branch of spacemaker to use the public jev-mem and then push that branch",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "awesome. mcp server restarted. tackle all known limitations if possible",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "yes, make auto the default and update docs and skill\n\ni like this, we need to apply it when possible (recommend this in jevmem readme and apply this in spacemaker branch):\n\n* Current state goes in the markdown files.\n* Dated facts that stay true go in jevmem.\n* Rules go in AGENTS.md.\n\n\n\nadd those limitations to our jev-mem readme, we'll tackle them next if possible",
+   "label": "skip",
+   "source": "real",
+   "split": "tune"
+  },
+  {
+   "prompt": "mcp restarted, test `One more jevmem MCP restart is needed. This session's server still runs the old code, so it has both the thread bug and the full default.` then when everything works please commit all our changes of jev-things repository",
+   "label": "skip",
+   "source": "real",
+   "split": "holdout"
+  },
+  {
+   "prompt": "From now on we always squash merge pull requests.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "tune"
+  },
+  {
+   "prompt": "Convention: all API handlers live in src/api and are named <resource>_handler.py.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "tune"
+  },
+  {
+   "prompt": "We decided to use Postgres instead of MySQL for the shop database.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "holdout"
+  },
+  {
+   "prompt": "Never commit directly to main in this repo; always open a pull request.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "tune"
+  },
+  {
+   "prompt": "Our team standard is 4-space indentation and a 100-character line limit for Python.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "tune"
+  },
+  {
+   "prompt": "Remember that we deploy only on Tuesdays and never on Fridays.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "holdout"
+  },
+  {
+   "prompt": "Always run the type checker before opening a PR.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "tune"
+  },
+  {
+   "prompt": "Use pnpm, not npm, for every JavaScript package in this project.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "tune"
+  },
+  {
+   "prompt": "Decision: error messages shown to users must never include stack traces.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "holdout"
+  },
+  {
+   "prompt": "For this project, dates are stored in UTC and only converted in the UI.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "tune"
+  },
+  {
+   "prompt": "We never mock the database in integration tests; we use a real test container.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "tune"
+  },
+  {
+   "prompt": "Going forward all new endpoints need an OpenAPI description before review.",
+   "label": "capture",
+   "source": "synthetic",
+   "split": "holdout"
+  }
+ ]
+}

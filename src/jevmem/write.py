@@ -40,7 +40,7 @@ class Writer:
 
     def write(self, content: str, scope: str = "global", entities: list[str] | None = None,
               timestamp: float | str | None = None, source: str | None = None,
-              dedupe: bool = True) -> WriteResult:
+              dedupe: bool = True, branch: str | None = None, commit: str | None = None) -> WriteResult:
         content = content.strip()
         if not content:
             return WriteResult(None, rejected=True, reason="empty")
@@ -57,14 +57,18 @@ class Writer:
         try:
             ans = self.decider.ask({"observation": content}, typing_questions())
         except DeciderUnavailable:
-            nid = self.store.add_node(content, scope, ts, entities, source)
+            nid = self.store.add_node(content, scope, ts, entities, source, branch, commit)
             self.store.queue_pending(nid, UNSCREENED)
             return WriteResult(nid, degraded=True, reason="jev unavailable; stored unscreened and hidden")
         if ans["injection"].p >= self.cfg.injection_block:
             return WriteResult(None, rejected=True, reason=f"injection screen p={ans['injection'].p:.2f}")
+        if ans["status"].p >= self.cfg.status_block:
+            return WriteResult(None, rejected=True, reason=(
+                f"looks like work status (p={ans['status'].p:.2f}): it goes stale silently. Keep current state in "
+                "markdown (progress/activeContext file), or restate it as a dated fact ('On 2026-10-03 X was finished')"))
         scores = {t: ans[t].p for t in MEMORY_TYPES}
 
-        nid = self.store.add_node(content, scope, ts, entities, source)
+        nid = self.store.add_node(content, scope, ts, entities, source, branch, commit)
         self.store.set_type_scores(nid, scores)
         res = WriteResult(nid, type_scores=scores)
         self._relate(nid, res)
@@ -144,7 +148,7 @@ class Writer:
                     ans = self.decider.ask({"observation": node.content}, typing_questions())
                 except DeciderUnavailable:
                     return done
-                if ans["injection"].p >= self.cfg.injection_block:
+                if ans["injection"].p >= self.cfg.injection_block or ans["status"].p >= self.cfg.status_block:
                     self.store.delete_node(nid); done += 1; continue
                 self.store.set_type_scores(nid, {t: ans[t].p for t in MEMORY_TYPES})
             res = WriteResult(nid)
