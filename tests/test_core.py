@@ -112,3 +112,15 @@ def test_work_status_notes_are_rejected_with_a_hint():
     r = w.write("Next step is to wire the middleware into the export route.")
     assert r.rejected and "markdown" in r.reason and s.count() == 0
     assert not w.write("On 2026-10-03 the middleware was wired into the export route.").rejected
+
+
+def test_vector_ties_rank_by_note_id_and_are_stable_under_float_noise():
+    import numpy as np
+    from jevmem.store import Store, HashEmbedder
+    s = Store(":memory:", HashEmbedder(64))
+    ids = [s.add_node("identical note text", "x") for _ in range(6)] + [s.add_node("something else entirely", "x")]
+    hits = s.vector_search("identical note text", ["x"], 4)
+    assert [i for i, _ in hits] == ids[:4]                       # equal scores: lowest ids first, k-th tie included
+    q = s.embedder.embed(["identical note text"])[0]
+    noisy = q + np.float32(1e-8)
+    assert [i for i, _ in s.index.search(noisy, ["x"], 4)] == ids[:4]

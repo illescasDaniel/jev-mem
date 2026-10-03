@@ -83,9 +83,14 @@ class MatrixIndex:
             mask &= np.isin(self.codes[:self._n], [self.scope_code[x] for x in scopes if x in self.scope_code])
         if exclude:
             mask &= ~np.isin(self.ids[:self._n], list(exclude))
-        sims = np.where(mask, sims, -np.inf)
-        top = np.argpartition(-sims, min(k, self._n) - 1)[:k] if self._n > k else np.arange(self._n)
-        top = top[np.argsort(-sims[top])]
+        # Round away last-bit differences between BLAS builds and break ties by id, so the same store ranks the same
+        # on every platform (argpartition/argsort order ties arbitrarily). Keep every entry tied with the k-th.
+        sims = np.where(mask, np.round(sims, 6), -np.inf)
+        if self._n > k:
+            top = np.flatnonzero(sims >= np.partition(sims, self._n - k)[self._n - k])
+        else:
+            top = np.arange(self._n)
+        top = top[np.lexsort((self.ids[top], -sims[top]))][:k]
         return [(int(self.ids[i]), float(sims[i])) for i in top if np.isfinite(sims[i])]
 
     def rebuild(self, rows):
