@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 - 2026-10-03
+
+Breaking (pre-1.0), for new databases only: an existing database keeps the embedder it was built with.
+
+- **fastembed is now a core dependency and the default embedder** (`JEVMEM_EMBEDDER` defaults to `fastembed`, the
+  setup the published results were measured with). `JEVMEM_EMBEDDER=hash` is the dependency-free opt-out. The `embed`
+  extra is removed. The first use downloads the model (about 70 MB): `jevmem warmup` does it ahead of time, and a model
+  that cannot be loaded now fails with a message saying so (CLI, hooks and MCP tools).
+- **sqlite-vec is a core dependency**, so `JEVMEM_INDEX=auto` really switches to it past 100k notes; if this Python
+  cannot load SQLite extensions it warns once and stays on the in-RAM index instead of silently doing so.
+- The `index` extra is split into `qdrant`, `lancedb` and `pgvector` (and `all` for the three). Selecting a backend
+  that is not installed fails with a message naming the extra.
+- New `jevmem warmup` command; README and installation docs rewritten around the new install options.
+
 ## 0.1.0 - 2026-10-03 (first published version)
 
 - README: says jevmem supplements a markdown memory bank and links the companion

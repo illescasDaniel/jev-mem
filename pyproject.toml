@@ -1,6 +1,6 @@
 [project]
 name = "jevmem"
-version = "0.1.0"
+version = "0.2.0"
 description = "System-One agent memory (Jev-Mem) for Claude Code and custom agents"
 readme = "README.md"
 license = "MIT"
@@ -18,9 +18,11 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "fastembed>=0.8.1",
     "mcp>=2",
     "numpy>=2.5.3",
     "python-dotenv>=1.2.4",
+    "sqlite-vec>=0.1.9",
     "typesafe-sdk>=0.7.2",
 ]
 
@@ -36,16 +38,10 @@ jevmem = "jevmem.cli:main"
 jevmem-mcp = "jevmem.mcp_server:main"
 
 [project.optional-dependencies]
-embed = [
-    "fastembed>=0.8.1",
-]
-index = [
-    "lancedb>=0.39.0",
-    "pgvector>=0.5.0",
-    "psycopg[binary]>=3.3.6",
-    "qdrant-client>=1.19.1",
-    "sqlite-vec>=0.1.9",
-]
+qdrant = ["qdrant-client>=1.19.1"]
+lancedb = ["lancedb>=0.39.0"]
+pgvector = ["pgvector>=0.5.0", "psycopg[binary]>=3.3.6"]
+all = ["jevmem[qdrant,lancedb,pgvector]"]
 
 [build-system]
 requires = ["uv_build>=0.12.20,<0.13.0"]

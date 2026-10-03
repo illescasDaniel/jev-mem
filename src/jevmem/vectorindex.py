@@ -7,16 +7,21 @@ Tiers (JEVMEM_INDEX, default `auto`):
   qdrant[:target]  HNSW ANN; target = a local path, an http(s) URL or empty (<db dir>/qdrant). Million-scale/shared.
   lancedb[:path]  embedded on-disk columnar store (default <db dir>/lancedb); cosine KNN, scope pushed down as a filter.
   pgvector:<dsn>  Postgres + pgvector (HNSW) for a team that already runs Postgres, e.g. pgvector:postgresql://u:p@host/db
-  auto        matrix, and switch to sqlite-vec (if installed) once the store passes AUTO_SWITCH notes.
+  auto        matrix, and switch to sqlite-vec once the store passes AUTO_SWITCH notes (warns and stays on matrix if this
+              Python cannot load SQLite extensions).
+qdrant, lancedb and pgvector are optional: `pip install 'jevmem[qdrant]'` (or `[lancedb]`, `[pgvector]`, `[all]`).
 """
 from __future__ import annotations
 
 import os
 import sqlite3
 import tempfile
+import warnings
 from typing import Iterable, Protocol
 
 import numpy as np
+
+from .extras import needs_extra
 
 AUTO_SWITCH = 100_000
 
@@ -106,8 +111,8 @@ class SqliteVecIndex:
     def __init__(self, db: sqlite3.Connection, dim: int):
         import sqlite_vec
         if not hasattr(db, "enable_load_extension"):
-            raise RuntimeError("this Python's sqlite3 was built without extension loading (common with the macOS "
-                               "system Python); use another interpreter, or JEVMEM_INDEX=matrix")
+            raise RuntimeError("this Python's sqlite3 was built without extension loading (uvx's managed Python and "
+                               "Homebrew's Python have it); use another interpreter, or JEVMEM_INDEX=matrix")
         db.enable_load_extension(True); sqlite_vec.load(db); db.enable_load_extension(False)
         self.db, self.dim = db, dim
         db.execute(f"CREATE VIRTUAL TABLE IF NOT EXISTS vec USING vec0(scope text partition key, "
@@ -144,7 +149,8 @@ class QdrantIndex:
     name = "qdrant"
 
     def __init__(self, target: str, dim: int, collection: str = "jevmem"):
-        from qdrant_client import QdrantClient, models
+        with needs_extra("qdrant", "the qdrant index"):
+            from qdrant_client import QdrantClient, models
         self.m, self.col, self.dim = models, collection, dim
         self.c = (QdrantClient(url=target, timeout=300, prefer_grpc=os.environ.get("JEVMEM_QDRANT_GRPC") == "1") if target.startswith("http")
                   else QdrantClient(":memory:") if target == ":memory:" else QdrantClient(path=target))
@@ -189,7 +195,8 @@ class LanceDBIndex:
     name = "lancedb"
 
     def __init__(self, target: str, dim: int, table: str = "jevmem"):
-        import lancedb
+        with needs_extra("lancedb", "the lancedb index"):
+            import lancedb
         self.dim, self.table = dim, table
         self.db = lancedb.connect(target)
         self.t = self.db.open_table(table) if table in self.db.list_tables().tables else self._create()
@@ -261,8 +268,9 @@ class PgVectorIndex:
     name = "pgvector"
 
     def __init__(self, dsn: str, dim: int, table: str = "jevmem_vec"):
-        import psycopg
-        from pgvector.psycopg import register_vector
+        with needs_extra("pgvector", "the pgvector index"):
+            import psycopg
+            from pgvector.psycopg import register_vector
         self.dim, self.table = dim, table
         self.db = psycopg.connect(dsn, autocommit=True)
         self.db.execute("CREATE EXTENSION IF NOT EXISTS vector")
@@ -323,8 +331,9 @@ def make_index(db: sqlite3.Connection, dim: int, path: str, spec: str | None = N
         if n_nodes >= AUTO_SWITCH:
             try:
                 return SqliteVecIndex(db, dim)
-            except Exception:
-                pass
+            except Exception as e:
+                warnings.warn(f"jevmem: {n_nodes} notes but the sqlite-vec index is unavailable ({e}); staying on the "
+                              "in-RAM index. Use a Python that can load SQLite extensions (uvx, Homebrew).", stacklevel=2)
         return MatrixIndex(db)
     if spec == "sqlite-vec":
         return SqliteVecIndex(db, dim)

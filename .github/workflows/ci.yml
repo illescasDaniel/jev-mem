@@ -30,7 +30,7 @@ jobs:
       # Python 3.13); the pgvector tests importorskip it.
       # `uv run` re-syncs on its own: without UV_PYTHON and --extra it would rebuild a 3.12 venv without the index
       # backends, so the 3.13 jobs would test 3.12 and skip the index tests.
-      - run: uv run --extra index pytest -q -rs
+      - run: uv run --extra all pytest -q -rs
 
   install-smoke:
     name: clean install of the built wheel (${{ matrix.os }})
@@ -55,6 +55,7 @@ jobs:
           uv pip install --python "$PY" dist/*.whl
           cd "$RUNNER_TEMP"                               # away from the checkout: nothing may depend on the repo
           "$BIN/jevmem" --help > /dev/null
+          "$BIN/jevmem" warmup                             # the default embedder: downloads the model
           "$BIN/jevmem" stats
           # With no key the hooks must fail open: exit 0 and print nothing harmful.
           echo '{"cwd": "."}' | "$BIN/jevmem" hook session-start
@@ -85,4 +86,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv run --extra index pytest -q -rs tests/test_index.py
+      - run: uv run --extra all pytest -q -rs tests/test_index.py

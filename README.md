@@ -54,7 +54,7 @@ memory; notes from an abandoned branch rank lower.
 hybrid search. Your agent never blocks on its memory.
 
 **It scales down and up.** Zero setup on a laptop (one SQLite file, in-RAM exact search). When you outgrow it, point
-`JEVMEM_INDEX` at sqlite-vec, Qdrant, LanceDB or Postgres/pgvector: SQLite stays the source of truth and the index is
+`JEVMEM_INDEX` at Qdrant, LanceDB or Postgres/pgvector (sqlite-vec takes over automatically past 100k notes): SQLite stays the source of truth and the index is
 a rebuildable copy.
 
 ### What it adds to an agentic workflow
@@ -104,8 +104,14 @@ waitlisted).
 mkdir -p ~/.jevmem && echo 'TYPESAFE_API_KEY=...' > ~/.jevmem/.env     # read automatically
 claude mcp add --scope user jevmem -- uvx --from jevmem jevmem-mcp
 ```
-No clone needed: `uvx` fetches [jevmem from PyPI](https://pypi.org/project/jevmem/); `pip install jevmem` gives you the
-`jevmem` and `jevmem-mcp` commands too. Notes go to the `global` scope unless you add `-e JEVMEM_SCOPE=project:my-project`.
+No clone needed: `uvx` fetches [jevmem from PyPI](https://pypi.org/project/jevmem/). Notes go to the `global` scope
+unless you add `-e JEVMEM_SCOPE=project:my-project`.
+
+The default install is the one the [results](#results) were measured with: it includes a small local embedding model
+(fastembed, ONNX, no API) and the sqlite-vec index. The model (about 70 MB) downloads on first use, so run
+`uvx --from jevmem jevmem warmup` once while online. Optional vector backends (`jevmem[qdrant]`, `[lancedb]`,
+`[pgvector]`, `[all]`) and the lighter `JEVMEM_EMBEDDER=hash` opt-out are in the
+[installation guide](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#2-install-the-python-package).
 
 Then ask Claude to remember something ("remember that we deploy through ops/deploy.sh, never by hand") and, in a new
 session, ask how to deploy. For the full experience:
@@ -116,7 +122,6 @@ session, ask how to deploy. For the full experience:
 
 To work on the code, `git clone` this repo and `uv sync`. Full setup, every environment variable, the CLI and the hooks:
 [docs/installation.md](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md).
-For better semantic search offline, use `uvx --from 'jevmem[embed]' jevmem-mcp` with `JEVMEM_EMBEDDER=fastembed` (local model, no API).
 
 ## Use it with a memory bank
 

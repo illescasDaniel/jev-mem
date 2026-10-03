@@ -41,8 +41,8 @@ Caveats: small datasets written by us (the held-out notes were written after the
 single run each (Jev is not perfectly deterministic); precision is low for baselines by construction (fixed k).
 
 ## Real embeddings and LoCoMo
-`uv sync --extra embed` adds fastembed (`BAAI/bge-small-en-v1.5`, downloaded on first use); select it with
-`JEVMEM_EMBEDDER=fastembed` (or `jevmem eval --embedder fastembed`). After switching embedders on an existing
+fastembed (`BAAI/bge-small-en-v1.5`, downloaded on first use) is the default embedder; the earlier tables used
+`JEVMEM_EMBEDDER=hash` (also `jevmem eval --embedder hash|fastembed`). After switching embedders on an existing
 database call `Store.reembed()`. With real embeddings the baselines get much stronger, so the honest numbers are:
 
 | recall (items returned) | harbor (held-out) | LoCoMo conv-26, sessions 1-4 |
@@ -191,7 +191,7 @@ the other sets: unanswerable questions about "plugins" or "shell completion" mat
 ## Scaling: pluggable vector index
 SQLite (`nodes.emb`) stays the source of truth; the vector index is a derived copy you can drop and rebuild
 (`jevmem reindex`, also automatic on open if a persistent index is missing rows). Pick one with `JEVMEM_INDEX`
-(`uv sync --extra index` installs the optional ones):
+(`uv sync --extra all` installs the optional ones):
 
 | index | what it is | 100k notes x 384-d, scope-filtered top-10 |
 |---|---|---|

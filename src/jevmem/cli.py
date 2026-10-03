@@ -7,7 +7,8 @@ import re
 from pathlib import Path
 
 from .service import Service
-from .store import EmbedderMismatch
+from .extras import MissingExtra
+from .store import EmbedderMismatch, EmbedderUnavailable
 
 
 def env_scope(default: str | None = "global") -> str | None:
@@ -69,7 +70,7 @@ def main(argv: list[str] | None = None) -> None:
     w.add_argument("--entity", action="append"); w.add_argument("--timestamp")
     r = sub.add_parser("recall"); r.add_argument("query"); r.add_argument("--scope", default=env_scope(None)); r.add_argument("-k", type=int, default=8); r.add_argument("--mode", choices=["full", "lite", "auto"])
     l = sub.add_parser("list"); l.add_argument("--scope", default=env_scope(None))
-    sub.add_parser("stats"); sub.add_parser("reindex"); sub.add_parser("reembed"); sub.add_parser("flush"); sub.add_parser("pending")
+    sub.add_parser("stats"); sub.add_parser("reindex"); sub.add_parser("reembed"); sub.add_parser("flush"); sub.add_parser("warmup"); sub.add_parser("pending")
     co = sub.add_parser("consolidate"); co.add_argument("--all", action="store_true", help="re-judge every note (after an upgrade)")
     e = sub.add_parser("eval"); e.add_argument("--data", default="evals/orbit.json"); e.add_argument("-k", type=int, default=5); e.add_argument("--json"); e.add_argument("--embedder", help="hash | fastembed[:model]")
     ei = sub.add_parser("eval-injection"); ei.add_argument("--data", default="evals/injection.json")
@@ -96,9 +97,17 @@ def main(argv: list[str] | None = None) -> None:
     if a.cmd == "hook":
         from .hooks import run
         return run(a.event)
+    if a.cmd == "warmup":
+        from .store import make_embedder
+        try:
+            emb = make_embedder()
+            emb.embed(["warmup"])
+        except (EmbedderUnavailable, MissingExtra) as e:
+            raise SystemExit(f"jevmem: {e}")
+        return print(f"embedder ready: {getattr(emb, 'spec', 'hash')}")
     try:
         svc = Service(switch_embedder=a.cmd == "reembed")
-    except EmbedderMismatch as e:
+    except (EmbedderMismatch, EmbedderUnavailable, MissingExtra) as e:
         raise SystemExit(f"jevmem: {e}")
     if a.cmd == "write":
         res, _ = svc.write(a.content, a.scope, a.entity, a.timestamp)

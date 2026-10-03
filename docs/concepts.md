@@ -113,11 +113,10 @@ without shared words. Similarity is usually **cosine similarity**: the angle bet
 direction).
 
 jevmem ships two embedders:
-- `hash` (default): a dependency-free feature-hashing trick. Fine for tests, weak for meaning.
-- `fastembed`: a small local ONNX model (`BAAI/bge-small-en-v1.5`, no API calls, no data leaves your machine).
-  Enable with `uv sync --extra embed` and `JEVMEM_EMBEDDER=fastembed`. It makes plain vector search much
-  better; see [evaluation.md](evaluation.md). If you switch embedders on an existing database, call
+- `fastembed` (default): a small local ONNX model (`BAAI/bge-small-en-v1.5`, no API calls, no data leaves your
+  machine). It makes plain vector search much better; see [evaluation.md](evaluation.md). If you switch embedders on an existing database, call
   `Store.reembed()`, because vectors from different models are not comparable.
+- `hash` (`JEVMEM_EMBEDDER=hash`): a dependency-free feature-hashing trick. Fine for tests, weak for meaning.
 
 ## 5. Vector search, vector indexes and vector databases
 

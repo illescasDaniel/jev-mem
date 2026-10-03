@@ -43,12 +43,22 @@ class HashEmbedder:
         return out / np.where(n == 0, 1, n)
 
 
+class EmbedderUnavailable(RuntimeError):
+    """The embedder could not be loaded (model not downloaded and no network, or no fastembed wheels here)."""
+
+
 class FastEmbedEmbedder:
-    """Local ONNX embeddings via fastembed (`uv sync --extra embed`). Downloads the model on first use."""
+    """Local ONNX embeddings via fastembed. Downloads the model on first use (`jevmem warmup` does it ahead of time)."""
 
     def __init__(self, model: str = "BAAI/bge-small-en-v1.5"):
-        from fastembed import TextEmbedding
-        self.model = TextEmbedding(model_name=model)
+        try:
+            from fastembed import TextEmbedding
+            self.model = TextEmbedding(model_name=model)
+        except Exception as e:
+            raise EmbedderUnavailable(
+                f"could not load the fastembed model {model!r} ({type(e).__name__}: {e}). The first use downloads it: "
+                "run `jevmem warmup` while online. For a new database on a machine that cannot run fastembed, "
+                "set JEVMEM_EMBEDDER=hash (weaker search).") from e
         self.spec = f"fastembed:{model}"
 
     def embed(self, texts: list[str]) -> np.ndarray:
@@ -56,9 +66,12 @@ class FastEmbedEmbedder:
         return v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
 
 
+DEFAULT_EMBEDDER = "fastembed"
+
+
 def make_embedder(spec: str | None = None) -> Embedder:
-    """`hash` (default) or `fastembed[:model]`; read from JEVMEM_EMBEDDER when spec is None."""
-    spec = spec or os.environ.get("JEVMEM_EMBEDDER", "hash")
+    """`fastembed[:model]` (default) or `hash`; read from JEVMEM_EMBEDDER when spec is None."""
+    spec = spec or os.environ.get("JEVMEM_EMBEDDER") or DEFAULT_EMBEDDER
     if spec.startswith("fastembed"):
         return FastEmbedEmbedder(*spec.split(":", 1)[1:])
     return HashEmbedder()
@@ -149,7 +162,7 @@ class Store:
             stored = _LEGACY_DIMS.get(len(r["emb"]) // 4) if r else None
         wanted = os.environ.get("JEVMEM_EMBEDDER")
         if not wanted:
-            return make_embedder(stored or "hash")
+            return make_embedder(stored or DEFAULT_EMBEDDER)
         emb = make_embedder(wanted)
         same = stored is None or stored == emb.spec or stored == wanted.split(":")[0]
         if not same and not switch:

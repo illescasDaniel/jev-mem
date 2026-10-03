@@ -21,7 +21,30 @@ git clone https://github.com/illescasDaniel/jev-mem && cd jev-mem
 uv sync
 uv run pytest
 ```
-Optional extras: `uv sync --extra embed` (local embeddings), `uv sync --extra index` (qdrant, lancedb, pgvector, sqlite-vec).
+The default install is complete: it includes fastembed (the local embedding model behind the published results) and
+sqlite-vec (the on-disk index `JEVMEM_INDEX=auto` switches to past 100k notes). Run `jevmem warmup` once while online:
+the model (about 70 MB) is downloaded on first use, and doing it inside a hook could exceed the hook timeout.
+
+Optional vector backends, each its own extra so you only download what you use (`JEVMEM_INDEX=qdrant` / `lancedb` /
+`pgvector:<dsn>`, see section 7):
+
+| Install | Adds | Size |
+|---|---|---|
+| `jevmem[qdrant]` | qdrant-client | ~25 MB |
+| `jevmem[lancedb]` | lancedb + pyarrow | ~320 MB |
+| `jevmem[pgvector]` | pgvector + psycopg | ~10 MB |
+| `jevmem[all]` | all three | ~350 MB |
+
+For example `uvx --from 'jevmem[all]' jevmem-mcp`, `pip install 'jevmem[all]'`, or from a clone `uv sync --extra all`.
+Installing a backend does not turn it on: set `JEVMEM_INDEX` for the MCP server and the hooks. If you select a backend
+that is not installed, jevmem tells you which extra to add.
+
+Two notes on Python builds:
+- **sqlite-vec needs a Python whose `sqlite3` can load extensions.** `uvx` and `uv tool install` use uv's managed
+  Python, which can, and so does Homebrew's. If yours cannot, `auto` prints a warning and stays on the in-RAM index
+  (fine below ~100k notes).
+- **No fastembed on your platform?** Set `JEVMEM_EMBEDDER=hash` for a new database: dependency-free, but it mostly
+  matches shared words.
 
 ## 3. Add the Jev MCP server (optional, general guardrail tools)
 [jkudish/jev-mcp](https://github.com/jkudish/jev-mcp) exposes 12 stateless tools (`jev_screen`, `jev_verify`,
@@ -52,7 +75,7 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 | `TYPESAFE_API_KEY` | Jev key (via `JEVMEM_ENV_FILE`, `~/.jevmem/.env` or `.env`) | required |
 | `JEVMEM_DB` | SQLite file | `~/.jevmem/memory.db` |
 | `JEVMEM_INDEX` | vector index: `auto`, `matrix`, `sqlite-vec`, `qdrant[:path-or-url]`, `lancedb[:path]`, `pgvector:<dsn>` (tuning env vars in [evaluation.md](evaluation.md)) | `auto` |
-| `JEVMEM_EMBEDDER` | `hash` (dependency-free) or `fastembed` (local ONNX model) | `hash` |
+| `JEVMEM_EMBEDDER` | `fastembed` (local ONNX model) or `hash` (dependency-free, weak) | `fastembed` |
 | `JEVMEM_RECALL_MODE` | `auto` (lite first; escalate to full when it finds nothing or the question looks multi-hop/temporal), `full` (route, graph expansion, stop rule) or `lite` (vector top-20 + one Jev relevance filter) | `auto` (prompt hook: `lite` + same-subject filter) |
 | `JEVMEM_SCOPE` | default scope for write/recall | `global` (hooks: `project:<repository name>`, shared by all worktrees) |
 | `JEVMEM_AUTOCAPTURE` | auto-store short standing preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
@@ -111,9 +134,9 @@ later ("on 2026-10-02 we chose X because Y") instead. Do not copy rules into jev
 context (SessionStart skips most restatements, not all).
 
 ## 7. Embeddings and the vector index
-- Embeddings: the default `hash` embedder is dependency-free but weak; `uv sync --extra embed` +
-  `JEVMEM_EMBEDDER=fastembed` uses a local model (call `jevmem reembed` after switching).
-- Index: set `JEVMEM_INDEX` (`uv sync --extra index` for the optional backends). The default `auto` is right for almost
+- Embeddings: the default `fastembed` uses a local model; `JEVMEM_EMBEDDER=hash` is dependency-free but weak (call
+  `jevmem reembed` after switching an existing database).
+- Index: set `JEVMEM_INDEX` (the `qdrant`, `lancedb` or `pgvector` extra for those backends). The default `auto` is right for almost
   everyone: an in-RAM exact matrix, switching to sqlite-vec past 100k notes. SQLite stays the source of truth and the
   index is a rebuildable copy, so switching is safe: set the variable and run `jevmem reindex`.
 

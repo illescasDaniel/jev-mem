@@ -639,25 +639,33 @@ wheels = [
 
 [[package]]
 name = "jevmem"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
+    { name = "fastembed" },
     { name = "mcp" },
     { name = "numpy" },
     { name = "python-dotenv" },
+    { name = "sqlite-vec" },
     { name = "typesafe-sdk" },
 ]
 
 [package.optional-dependencies]
-embed = [
-    { name = "fastembed" },
-]
-index = [
+all = [
     { name = "lancedb" },
     { name = "pgvector" },
     { name = "psycopg", extra = ["binary"] },
     { name = "qdrant-client" },
-    { name = "sqlite-vec" },
+]
+lancedb = [
+    { name = "lancedb" },
+]
+pgvector = [
+    { name = "pgvector" },
+    { name = "psycopg", extra = ["binary"] },
+]
+qdrant = [
+    { name = "qdrant-client" },
 ]
 
 [package.dev-dependencies]
@@ -669,18 +677,19 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastembed", marker = "extra == 'embed'", specifier = ">=0.8.1" },
-    { name = "lancedb", marker = "extra == 'index'", specifier = ">=0.39.0" },
+    { name = "fastembed", specifier = ">=0.8.1" },
+    { name = "jevmem", extras = ["qdrant", "lancedb", "pgvector"], marker = "extra == 'all'" },
+    { name = "lancedb", marker = "extra == 'lancedb'", specifier = ">=0.39.0" },
     { name = "mcp", specifier = ">=2" },
     { name = "numpy", specifier = ">=2.5.3" },
-    { name = "pgvector", marker = "extra == 'index'", specifier = ">=0.5.0" },
-    { name = "psycopg", extras = ["binary"], marker = "extra == 'index'", specifier = ">=3.3.6" },
+    { name = "pgvector", marker = "extra == 'pgvector'", specifier = ">=0.5.0" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'pgvector'", specifier = ">=3.3.6" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
-    { name = "qdrant-client", marker = "extra == 'index'", specifier = ">=1.19.1" },
-    { name = "sqlite-vec", marker = "extra == 'index'", specifier = ">=0.1.9" },
+    { name = "qdrant-client", marker = "extra == 'qdrant'", specifier = ">=1.19.1" },
+    { name = "sqlite-vec", specifier = ">=0.1.9" },
     { name = "typesafe-sdk", specifier = ">=0.7.2" },
 ]
-provides-extras = ["embed", "index"]
+provides-extras = ["qdrant", "lancedb", "pgvector", "all"]
 
 [package.metadata.requires-dev]
 dev = [
