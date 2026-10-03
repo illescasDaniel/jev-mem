@@ -1,7 +1,7 @@
 """Collect the prompts a person typed in past Claude Code sessions, for the capture, hook and SessionStart evals.
 Reads ~/.claude/projects/<dir matching PATTERN>/*.jsonl (the transcripts stay on your machine; the output goes to
 evals/data/, which is gitignored).
-Usage: uv run python evals/harvest_prompts.py SpaceMaker Jev-things  --out evals/data/prompts.json"""
+Usage: uv run python evals/harvest_prompts.py SpaceMaker jev-mem  --out evals/data/prompts.json"""
 import argparse, glob, json, os, re
 from pathlib import Path
 

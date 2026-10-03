@@ -37,7 +37,7 @@ stored in config), so opening this folder in Claude Code is enough.
 Project scope (already in this repo's `.mcp.json`):
 ```bash
 claude mcp add --scope project jevmem \
-  -e JEVMEM_ENV_FILE=$PWD/.env -e JEVMEM_SCOPE=project:jev-things \
+  -e JEVMEM_ENV_FILE=$PWD/.env -e JEVMEM_SCOPE=project:jev-mem \
   -- uv run --project $PWD jevmem-mcp
 ```
 `--project` (not `--directory`) keeps the agent's working directory, which jevmem uses to record each note's git

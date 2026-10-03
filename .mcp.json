@@ -18,7 +18,7 @@
       ],
       "env": {
         "JEVMEM_ENV_FILE": ".env",
-        "JEVMEM_SCOPE": "project:jev-things"
+        "JEVMEM_SCOPE": "project:jev-mem"
       }
     }
   }
