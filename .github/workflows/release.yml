@@ -19,7 +19,6 @@ jobs:
         run: |
           v=$(python3 -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           test "v$v" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != version $v"; exit 1; }
-      - run: uv sync --extra index
-      - run: uv run pytest -q
+      - run: uv run --extra index pytest -q -rs     # plain `uv run` would drop the index extra
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1

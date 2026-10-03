@@ -13,6 +13,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.12", "3.13"]
+    env:
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -26,8 +28,9 @@ jobs:
           git config --global init.defaultBranch main
       # pgserver (embedded Postgres, tests only) is a dev dependency only where it has wheels (not Windows, not
       # Python 3.13); the pgvector tests importorskip it.
-      - run: uv sync --python ${{ matrix.python }} --extra index
-      - run: uv run pytest -q
+      # `uv run` re-syncs on its own: without UV_PYTHON and --extra it would rebuild a 3.12 venv without the index
+      # backends, so the 3.13 jobs would test 3.12 and skip the index tests.
+      - run: uv run --extra index pytest -q -rs
 
   install-smoke:
     name: clean install of the built wheel (${{ matrix.os }})
@@ -78,8 +81,8 @@ jobs:
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       JEVMEM_TEST_PG_DSN: postgresql://postgres:postgres@localhost:5432/postgres
+      UV_PYTHON: "3.13"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv sync --python 3.13 --extra index
-      - run: uv run pytest -q -rs tests/test_index.py
+      - run: uv run --extra index pytest -q -rs tests/test_index.py
