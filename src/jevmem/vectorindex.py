@@ -100,6 +100,9 @@ class SqliteVecIndex:
 
     def __init__(self, db: sqlite3.Connection, dim: int):
         import sqlite_vec
+        if not hasattr(db, "enable_load_extension"):
+            raise RuntimeError("this Python's sqlite3 was built without extension loading (common with the macOS "
+                               "system Python); use another interpreter, or JEVMEM_INDEX=matrix")
         db.enable_load_extension(True); sqlite_vec.load(db); db.enable_load_extension(False)
         self.db, self.dim = db, dim
         db.execute(f"CREATE VIRTUAL TABLE IF NOT EXISTS vec USING vec0(scope text partition key, "

@@ -24,13 +24,9 @@ jobs:
           git config --global user.name ci
           git config --global user.email ci@example.com
           git config --global init.defaultBranch main
-      # pgserver (embedded Postgres, tests only) has no Windows wheel: skip it there, its tests importorskip.
-      - name: Install (Linux, macOS)
-        if: runner.os != 'Windows'
-        run: uv sync --python ${{ matrix.python }} --extra index
-      - name: Install (Windows)
-        if: runner.os == 'Windows'
-        run: uv sync --python ${{ matrix.python }} --extra index --no-install-package pgserver
+      # pgserver (embedded Postgres, tests only) is a dev dependency only where it has wheels (not Windows, not
+      # Python 3.13); the pgvector tests importorskip it.
+      - run: uv sync --python ${{ matrix.python }} --extra index
       - run: uv run pytest -q
 
   install-smoke:
@@ -52,7 +48,8 @@ jobs:
         run: |
           uv venv --python 3.12 "$RUNNER_TEMP/venv"
           if [ "$RUNNER_OS" = "Windows" ]; then BIN="$RUNNER_TEMP/venv/Scripts"; else BIN="$RUNNER_TEMP/venv/bin"; fi
-          uv pip install --python "$BIN/python" dist/*.whl
+          if [ "$RUNNER_OS" = "Windows" ]; then PY="$BIN/python.exe"; else PY="$BIN/python"; fi
+          uv pip install --python "$PY" dist/*.whl
           cd "$RUNNER_TEMP"                               # away from the checkout: nothing may depend on the repo
           "$BIN/jevmem" --help > /dev/null
           "$BIN/jevmem" stats

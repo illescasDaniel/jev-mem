@@ -1,3 +1,5 @@
+import sqlite3
+
 import numpy as np
 import pytest
 
@@ -12,6 +14,8 @@ _pg = None
 def resolve(spec, tmp_path):
     """Concrete JEVMEM_INDEX string. pgvector runs against an embedded Postgres (pgserver) or JEVMEM_TEST_PG_DSN."""
     global _pg
+    if spec == "sqlite-vec" and not hasattr(sqlite3.Connection, "enable_load_extension"):
+        pytest.skip("this Python's sqlite3 cannot load extensions")
     if spec == "lancedb":
         return f"lancedb:{tmp_path / 'lance'}"
     if spec == "pgvector":

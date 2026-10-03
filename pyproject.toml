@@ -39,7 +39,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "pgserver>=0.1.4",
+    "pgserver>=0.1.4; python_version < '3.13' and sys_platform != 'win32'",   # embedded Postgres for the pgvector tests
     "pytest>=9.1.1",
     "taskipy>=1.14.1",
 ]

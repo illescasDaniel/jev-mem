@@ -199,7 +199,11 @@ def _older_newer(a, b):
     """(older, newer) by when the fact happened (timestamp), else by when it was written; None if tied.
     Write order alone is not enough when timestamps exist: backfilled or imported notes are written late.
     Equal timestamps (notes stamped with the same day) fall back to the latest date each note mentions."""
-    ta, tb = (a.timestamp, b.timestamp) if a.timestamp is not None and b.timestamp is not None else (a.created, b.created)
+    if a.timestamp is not None and b.timestamp is not None:
+        ta, tb = a.timestamp, b.timestamp
+    else:      # write order; ids break ties on clocks too coarse to tell two quick writes apart (Windows)
+        ta, tb = ((a.created, a.id), (b.created, b.id)) if a.created is not None and b.created is not None \
+            else (None, None)
     if ta is not None and ta == tb:
         ta, tb = max(_DATE.findall(a.content), default=None), max(_DATE.findall(b.content), default=None)
     if ta is None or tb is None or ta == tb:

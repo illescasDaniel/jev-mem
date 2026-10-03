@@ -218,3 +218,13 @@ def test_notes_recall_returns_together_are_compared_even_if_never_neighbours():
     assert svc.store.queued_pairs(10) == []                  # judged once, not again
     svc.retriever.recall("which database does the shop use", ["project:p"], mode="lite")
     assert svc.store.queued_pairs(10) == []
+
+
+def test_write_order_still_decides_when_the_clock_cannot_tell_two_writes_apart(monkeypatch):
+    """Windows' clock ticks every ~15 ms, so quick writes can share `created`; the note id then orders them."""
+    monkeypatch.setattr("jevmem.store.time.time", lambda: 1_700_000_000.0)
+    svc, _ = make(clash(("LaunchDarkly", "flags.yaml")))
+    o, _ = svc.write("Feature flags are stored in LaunchDarkly.", scope="project:p")
+    n, _ = svc.write("Feature flags are now stored in flags.yaml.", scope="project:p")
+    assert svc.consolidator.run().superseded == 1
+    assert svc.store.flagged("superseded_by") == {o.node_id}
