@@ -5,7 +5,14 @@ description = "System-One agent memory (Jev-Mem) for Claude Code and custom agen
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-classifiers = ["Development Status :: 4 - Beta"]
+keywords = ["agent", "memory", "mcp", "claude-code", "jev", "llm", "rag"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 authors = [
     { name = "Daniel Illescas Romero", email = "illescas.daniel@protonmail.com" }
 ]
@@ -16,6 +23,13 @@ dependencies = [
     "python-dotenv>=1.2.4",
     "typesafe-sdk>=0.7.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/illescasDaniel/jev-mem"
+Documentation = "https://github.com/illescasDaniel/jev-mem/tree/main/docs"
+Issues = "https://github.com/illescasDaniel/jev-mem/issues"
+Changelog = "https://github.com/illescasDaniel/jev-mem/blob/main/CHANGELOG.md"
+Paper = "https://arxiv.org/abs/2609.23986"
 
 [project.scripts]
 jevmem = "jevmem.cli:main"

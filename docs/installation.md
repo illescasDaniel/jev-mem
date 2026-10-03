@@ -14,6 +14,8 @@ Everything you need to run jevmem with Claude Code or your own agents. For the f
   Without a key, `stats`, `list` and `forget` still work, and recall falls back to plain hybrid search.
 
 ## 2. Install the Python package
+From PyPI (no clone): `uvx --from jevmem jevmem-mcp` runs the MCP server on demand, `uvx jevmem <command>` runs the CLI,
+and `pip install jevmem` / `uv tool install jevmem` install both commands. From source:
 ```bash
 git clone https://github.com/illescasDaniel/jev-mem && cd jev-mem
 uv sync
@@ -81,6 +83,13 @@ This repo ships both for itself:
     second call keeps only notes about the prompt's specific subject (not ones sharing words like "tests" or "MCP").
     Superseded notes are never injected. A strongly stated preference/decision/convention in the prompt is
     auto-stored (disable with `JEVMEM_AUTOCAPTURE=0`).
+- Using the PyPI package instead of a clone? Put this in `~/.claude/settings.json` (or the project's `.claude/settings.json`):
+  ```json
+  {"hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "uvx jevmem hook session-start", "timeout": 15}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "uvx jevmem hook user-prompt", "timeout": 20}]}]
+  }}
+  ```
 - Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`, or from rule files such as
   `AGENTS.md`/`CLAUDE.md` with `uv run jevmem import-markdown AGENTS.md --scope project:<name>` (one note per bullet
   or paragraph; for long decision logs it is better to have your agent write atomic, dated notes).

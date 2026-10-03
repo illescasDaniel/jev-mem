@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (becomes 0.1.0, the first published version)
+## 0.1.0 - 2026-10-03 (first published version)
 
 ### Known-limitations pass
 - MCP tool failures reach the agent as `<ExceptionType>: <message>` instead of "Error executing tool X";

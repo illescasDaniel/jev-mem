@@ -3,7 +3,7 @@
 **Long-term memory for AI agents that costs fractions of a cent, never calls an LLM, and cleans up after itself.**
 
 [![CI](https://github.com/illescasDaniel/jev-mem/actions/workflows/ci.yml/badge.svg)](https://github.com/illescasDaniel/jev-mem/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/illescasDaniel/jev-mem/blob/main/LICENSE)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Status: beta](https://img.shields.io/badge/status-beta-orange)
 
@@ -19,7 +19,7 @@ jevmem takes the approach of the [**Jev-Mem paper**](https://arxiv.org/abs/2609.
 jevmem is the memory layer built on that idea: an MCP server, Claude Code hooks and skill, a CLI and a Python library on
 top of one SQLite file.
 
-![architecture](docs/img/architecture.svg)
+![architecture](https://raw.githubusercontent.com/illescasDaniel/jev-mem/main/docs/img/architecture.svg)
 
 ## Why you would want it
 
@@ -34,7 +34,7 @@ all, and inject nothing when it is not.
 **It sends less, and the right thing.** Plain vector search returns five notes and hopes. jevmem judges relevance,
 follows links between notes to find the *why* behind a fact, and returns one to three:
 
-![recall results](docs/img/results.svg)
+![recall results](https://raw.githubusercontent.com/illescasDaniel/jev-mem/main/docs/img/results.svg)
 
 **It knows when it does not know.** Recall reports `sufficient: false` instead of returning five plausible
 notes for a question memory cannot answer (abstains on 94-98% of unanswerable questions), so the agent looks in the code
@@ -70,28 +70,28 @@ a rebuildable copy.
 
 It also ships a small **Judge** API (route a task to the right agent, prune tool output, screen untrusted text, decide
 when to stop) for using the same cheap typed decisions outside memory. See
-[Python library](docs/architecture.md#using-it-from-your-own-python-agents).
+[Python library](https://github.com/illescasDaniel/jev-mem/blob/main/docs/architecture.md#using-it-from-your-own-python-agents).
 
 ## How it works in 60 seconds
 
 1. **Write**: your agent calls `memory_write("On 2026-05-15 we moved the month-end job to 22:00 because the warehouse
    was downsized to Medium")`. Code rejects secrets and duplicates; one batched Jev call types the note and screens it for
-   injection and status rot; a second call links it to related notes. ([write path](docs/architecture.md#write-path-writepy))
+   injection and status rot; a second call links it to related notes. ([write path](https://github.com/illescasDaniel/jev-mem/blob/main/docs/architecture.md#write-path-writepy))
 2. **Recall**: a later question, "why does the month-end job run at night?", is answered by `lite` mode (one call),
    escalating to `full` mode (route, graph expansion, stop check) only when it looks multi-hop or temporal. The
    graph edge from the job note to the warehouse note finds the cause even though they share no words.
-   ([recall path](docs/architecture.md#recall-path-retrievepy))
+   ([recall path](https://github.com/illescasDaniel/jev-mem/blob/main/docs/architecture.md#recall-path-retrievepy))
 3. **Hooks** inject pinned notes and the strongest conventions at session start, and relevant notes per prompt, with no
-   effort from the agent. ([hooks](docs/architecture.md#hooks-hookspy))
+   effort from the agent. ([hooks](https://github.com/illescasDaniel/jev-mem/blob/main/docs/architecture.md#hooks-hookspy))
 4. **Consolidate**: every 20 writes, Jev compares new notes with their neighbours and flags what is superseded,
-   duplicated or repeated. ([consolidation](docs/architecture.md#consolidation-consolidatepy))
+   duplicated or repeated. ([consolidation](https://github.com/illescasDaniel/jev-mem/blob/main/docs/architecture.md#consolidation-consolidatepy))
 
 <details>
 <summary>See the write and recall pipelines</summary>
 
-![write pipeline](docs/img/write-pipeline.svg)
-![recall pipeline](docs/img/recall-pipeline.svg)
-![session flow](docs/img/session-flow.svg)
+![write pipeline](https://raw.githubusercontent.com/illescasDaniel/jev-mem/main/docs/img/write-pipeline.svg)
+![recall pipeline](https://raw.githubusercontent.com/illescasDaniel/jev-mem/main/docs/img/recall-pipeline.svg)
+![session flow](https://raw.githubusercontent.com/illescasDaniel/jev-mem/main/docs/img/session-flow.svg)
 
 </details>
 
@@ -101,27 +101,27 @@ You need Python 3.12+, [uv](https://docs.astral.sh/uv/), Claude Code, and a Type
 waitlisted).
 
 ```bash
-git clone https://github.com/illescasDaniel/jev-mem && cd jev-mem
-uv sync
-echo 'TYPESAFE_API_KEY=...' > .env
-claude mcp add --scope project jevmem \
-  -e JEVMEM_ENV_FILE=$PWD/.env -e JEVMEM_SCOPE=project:my-project \
-  -- uv run --project $PWD jevmem-mcp
+mkdir -p ~/.jevmem && echo 'TYPESAFE_API_KEY=...' > ~/.jevmem/.env     # read automatically
+claude mcp add --scope user jevmem -- uvx --from jevmem jevmem-mcp
 ```
+No clone needed: `uvx` fetches [jevmem from PyPI](https://pypi.org/project/jevmem/); `pip install jevmem` gives you the
+`jevmem` and `jevmem-mcp` commands too. Notes go to the `global` scope unless you add `-e JEVMEM_SCOPE=project:my-project`.
 
 Then ask Claude to remember something ("remember that we deploy through ops/deploy.sh, never by hand") and, in a new
-session, ask how to deploy. Copy [`.claude/skills/jev-memory`](.claude/skills/jev-memory/SKILL.md) to
-`~/.claude/skills/` so the agent knows when and how to write, and add the hooks from
-[`.claude/settings.json`](.claude/settings.json) for automatic injection.
-Seed it from what you already have: `uv run jevmem import-claude-memory` or `uv run jevmem import-markdown AGENTS.md`.
+session, ask how to deploy. For the full experience:
+- copy the [`jev-memory` skill](https://github.com/illescasDaniel/jev-mem/blob/main/.claude/skills/jev-memory/SKILL.md)
+  to `~/.claude/skills/` so the agent knows when and how to write;
+- add the two hooks for automatic injection ([snippet](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#5-skill-and-hooks));
+- seed it from what you already have: `uvx jevmem import-claude-memory` or `uvx jevmem import-markdown AGENTS.md`.
 
-Full setup, every environment variable, the CLI and the hooks: [docs/installation.md](docs/installation.md).
-For better semantic search offline, add `uv sync --extra embed` and `JEVMEM_EMBEDDER=fastembed` (local model, no API).
+To work on the code, `git clone` this repo and `uv sync`. Full setup, every environment variable, the CLI and the hooks:
+[docs/installation.md](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md).
+For better semantic search offline, use `uvx --from 'jevmem[embed]' jevmem-mcp` with `JEVMEM_EMBEDDER=fastembed` (local model, no API).
 
 ## Results
 
 Measured live against Jev on small datasets we built ourselves, with real embeddings (`bge-small`). They are
-indications, not benchmarks; methodology, datasets and caveats are in [docs/evaluation.md](docs/evaluation.md).
+indications, not benchmarks; methodology, datasets and caveats are in [docs/evaluation.md](https://github.com/illescasDaniel/jev-mem/blob/main/docs/evaluation.md).
 
 | | vector top-5 | jevmem |
 |---|---|---|
@@ -139,12 +139,12 @@ indications, not benchmarks; methodology, datasets and caveats are in [docs/eval
 
 | | |
 |---|---|
-| [Installation and configuration](docs/installation.md) | setup, env vars, tools, CLI, hooks, skill, what goes where, indexes |
-| [Architecture](docs/architecture.md) | write, recall, hooks, consolidation, scopes, Python API, code layout |
-| [Concepts](docs/concepts.md) | Jev, System One/Two, embeddings, vector search and databases, explained from scratch |
-| [Evaluation](docs/evaluation.md) | methodology, datasets, every number above, caveats, 1M-note benchmark |
-| [Known limitations](docs/limitations.md) | what is weak, honestly, and what we would try next |
-| [Changelog](CHANGELOG.md) | what changed |
+| [Installation and configuration](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md) | setup, env vars, tools, CLI, hooks, skill, what goes where, indexes |
+| [Architecture](https://github.com/illescasDaniel/jev-mem/blob/main/docs/architecture.md) | write, recall, hooks, consolidation, scopes, Python API, code layout |
+| [Concepts](https://github.com/illescasDaniel/jev-mem/blob/main/docs/concepts.md) | Jev, System One/Two, embeddings, vector search and databases, explained from scratch |
+| [Evaluation](https://github.com/illescasDaniel/jev-mem/blob/main/docs/evaluation.md) | methodology, datasets, every number above, caveats, 1M-note benchmark |
+| [Known limitations](https://github.com/illescasDaniel/jev-mem/blob/main/docs/limitations.md) | what is weak, honestly, and what we would try next |
+| [Changelog](https://github.com/illescasDaniel/jev-mem/blob/main/CHANGELOG.md) | what changed |
 
 ## Status
 
@@ -159,4 +159,4 @@ Based on *Jev-Mem: System-One-Controlled Agentic Memory for Efficient AI Agents*
 [arXiv:2609.23986](https://arxiv.org/abs/2609.23986)). Typed decisions by [Jev](https://typesafe.ai) from TypeSafe.
 This project is not affiliated with the paper's authors or TypeSafe.
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](https://github.com/illescasDaniel/jev-mem/blob/main/LICENSE).
