@@ -1,0 +1,325 @@
+{
+ "about": "Labelled (old, new) note pairs for consolidation. Labels: superseded (new replaces old's value/state), contradiction (same time, incompatible), duplicate (same facts), subsumed (one note states every fact of the other, plus more), merge (same subject, compatible, complementary details), distinct (related or unrelated facts that must stay separate). `src: spacemaker` pairs come from the live SpaceMaker store (2026-10-03). pattern: two separate episodes of one repeated behaviour (should become a promote proposal).",
+ "pairs": [
+  {
+   "src": "spacemaker",
+   "label": "superseded",
+   "old_ts": "2026-09-29",
+   "new_ts": "2026-09-30",
+   "old": "SpaceMaker .mcp.json launches the webnav MCP from the local checkout ${HOME}/Projects/Code/Python/MCPs/webnav-ts-mcp/bin/launch.mjs until the package is published on npm.",
+   "new": "On 2026-09-30 SpaceMaker switched its webnav MCP to the published npm package webnav-ts-mcp, launched with `npx --yes webnav-ts-mcp@^0.1.1` in .mcp.json and .cursor/mcp.json; the first start downloads about 180 MB into npm's cache."
+  },
+  {
+   "src": "spacemaker",
+   "label": "superseded",
+   "old_ts": "2026-10-01",
+   "new_ts": "2026-10-02",
+   "old": "SpaceMaker as-is moves treat a destination file with the same size as a duplicate and drop the source file.",
+   "new": "On 2026-10-02 SpaceMaker changed as-is move duplicate detection: _move_to_folder drops the source only if files_have_same_content (size plus 1 MiB chunk comparison is identical), otherwise it writes `name (2).ext`; this corrected the earlier rule that same size means duplicate, which could drop a different file."
+  },
+  {
+   "src": "spacemaker",
+   "label": "superseded",
+   "old_ts": "2026-09-26",
+   "new_ts": "2026-09-27",
+   "old": "SpaceMaker's gallery index folder is named converted/ and holds encoded and moved-as-is files.",
+   "new": "On 2026-09-27 SpaceMaker renamed the library folder converted/ to processed/; the legacy on-disk name converted/ is migrated to processed/ when the library is ensured."
+  },
+  {
+   "src": "spacemaker",
+   "label": "superseded",
+   "old_ts": "2026-09-26",
+   "new_ts": "2026-10-03",
+   "old": "SpaceMaker's gallery index folder is named converted/ and holds encoded and moved-as-is files.",
+   "new": "SpaceMaker library root folders are originals/ (extract target), processed/ (gallery index), error/ (encode failed after one retry) and invalid/ (unsupported or broken media)."
+  },
+  {
+   "src": "spacemaker",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "SpaceMaker Phase 0 (Design) deliverable is wireframes/<screen>.html, a self-contained HTML/CSS file, and the agent must stop and ask for UX/design approval afterwards.",
+   "new": "In SpaceMaker one gate is passed per explicit approval: do not batch Phase 0 to Phase 4 in one run, and after the wireframe end the turn and wait."
+  },
+  {
+   "src": "spacemaker",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "SpaceMaker library root folders are originals/ (extract target), processed/ (gallery index), error/ (encode failed after one retry) and invalid/ (unsupported or broken media).",
+   "new": "SpaceMaker retries a failed encode once, deleting the partial output first; if it fails again the file goes to error/, and unsupported or broken files go to invalid/."
+  },
+  {
+   "src": "spacemaker",
+   "label": "distinct",
+   "old_ts": "2026-09-30",
+   "new_ts": "2026-09-30",
+   "old": "On 2026-09-30 SpaceMaker's Components screen omits the AFC tools (idevice_*, ifuse) on macOS and Windows and shows an OK chip when all required tools resolve, including those found on PATH.",
+   "new": "On 2026-09-30 SpaceMaker prepends Homebrew and host package-manager bin directories to PATH so tools installed there resolve."
+  },
+  {
+   "src": "spacemaker",
+   "label": "distinct",
+   "old_ts": "2026-09-29",
+   "new_ts": "2026-10-03",
+   "old": "On 2026-09-29 SpaceMaker added the independent code-grader subagent for SDD Phase 5 with a mechanical pre-check script, so grading does not depend on the implementing agent's own judgment.",
+   "new": "SpaceMaker Phase 5 (Grade) runs the read-only code-grader subagent against the spec; it is automatic with no approval needed, FAILs are fixed in at most 2 rounds, and the scorecard is shown to the user."
+  },
+  {
+   "src": "spacemaker",
+   "label": "merge",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "AGENTS.md says to act as if SpaceMaker will grow large: keep layer boundaries, ports, specs, wireframes and tests even for trivial changes, because the project is small today but should survive growth.",
+   "new": "User preference of Daniel (SpaceMaker owner), stated in AGENTS.md: always keep layer boundaries and tests even when a change feels trivial, and prefer conventions and clear abstractions over one-off fixes."
+  },
+  {
+   "src": "spacemaker",
+   "label": "distinct",
+   "old_ts": "2026-10-03",
+   "new_ts": "2026-10-03",
+   "old": "SpaceMaker never uses CPU video encoders: it encodes video with GPU hardware only (priority av1_nvenc, av1_qsv, av1_vaapi, h264_nvenc, h264_qsv, h264_vaapi) and moves the source unchanged when no hardware encoder exists.",
+   "new": "SpaceMaker never library-encodes video to HEVC; AV1 outputs use Opus 256k audio and H.264 outputs use AAC audio."
+  },
+  {
+   "src": "spacemaker",
+   "label": "distinct",
+   "old_ts": "2026-09-30",
+   "new_ts": "2026-09-30",
+   "old": "On 2026-09-30 SpaceMaker moved the codenav-mcp, webnav-mcp and mcp-nav-shared packages out of the repo into their own repositories and now depends on the PyPI releases.",
+   "new": "On 2026-09-30 SpaceMaker first ran webnav from the local checkout experiments/webnav-mcp-ts, then moved it to its own repo webnav-ts-mcp and dropped experiments/ from SpaceMaker; the Python webnav-mcp is no longer used by this repo."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-01-05",
+   "new_ts": "2026-09-20",
+   "old": "The default branch of the shop repo is master.",
+   "new": "The default branch of the shop repo is main."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-02-01",
+   "new_ts": "2026-06-01",
+   "old": "The shop uses Postgres as its database.",
+   "new": "The shop uses MySQL as its database."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-03-01",
+   "new_ts": "2026-06-01",
+   "old": "The public API rate limit is 100 requests per minute.",
+   "new": "On 2026-06-01 the public API rate limit was raised to 500 requests per minute."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-01-10",
+   "new_ts": "2026-05-02",
+   "old": "Production runs Python 3.11.",
+   "new": "Production was upgraded to Python 3.12 on 2026-05-02."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-01-15",
+   "new_ts": "2026-04-01",
+   "old": "Alice owns the billing service.",
+   "new": "Bob took over the billing service on 2026-04-01."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-02-20",
+   "new_ts": "2026-07-01",
+   "old": "The test suite runs in parallel with pytest -n auto.",
+   "new": "Since 2026-07-01 the test suite runs serially because pytest-xdist made fixtures flaky."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-03-03",
+   "new_ts": "2026-08-12",
+   "old": "Frontend builds use webpack.",
+   "new": "Frontend builds use Vite."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-04-04",
+   "new_ts": "2026-08-30",
+   "old": "The nightly backup job runs at 02:00 UTC.",
+   "new": "The nightly backup job was moved to 04:30 UTC on 2026-08-30 to avoid the batch import window."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-02-02",
+   "new_ts": "2026-09-09",
+   "old": "The mobile app supports iOS 15 and newer.",
+   "new": "The mobile app dropped iOS 15; the minimum is now iOS 16."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-01-20",
+   "new_ts": "2026-06-15",
+   "old": "Feature flags are stored in LaunchDarkly.",
+   "new": "On 2026-06-15 the team removed LaunchDarkly; feature flags now live in config/flags.yaml."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-05-05",
+   "new_ts": "2026-05-05",
+   "old": "The staging server is staging.acme.io.",
+   "new": "The staging server is stage2.acme.io."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-05-06",
+   "new_ts": "2026-05-06",
+   "old": "The session cache TTL is 5 minutes.",
+   "new": "The session cache TTL is 1 hour."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-05-07",
+   "new_ts": "2026-05-07",
+   "old": "The admin dashboard is written in React.",
+   "new": "The admin dashboard is written in Vue 3."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-05-08",
+   "new_ts": "2026-05-08",
+   "old": "Releases are cut every Tuesday.",
+   "new": "Releases are cut every Thursday."
+  },
+  {
+   "src": "synthetic",
+   "label": "duplicate",
+   "old_ts": "2026-03-01",
+   "new_ts": "2026-04-10",
+   "old": "We deploy the shop with ops/deploy.sh.",
+   "new": "Deployments of the shop are done by running ops/deploy.sh."
+  },
+  {
+   "src": "synthetic",
+   "label": "duplicate",
+   "old_ts": "2026-03-02",
+   "new_ts": "2026-03-20",
+   "old": "Run the tests with `uv run pytest`.",
+   "new": "Tests are run via `uv run pytest`."
+  },
+  {
+   "src": "synthetic",
+   "label": "duplicate",
+   "old_ts": "2026-03-03",
+   "new_ts": "2026-03-30",
+   "old": "Never commit directly to main; open a pull request.",
+   "new": "All changes to main go through a pull request, never a direct commit."
+  },
+  {
+   "src": "synthetic",
+   "label": "subsumed",
+   "old_ts": "2026-03-04",
+   "new_ts": "2026-04-01",
+   "old": "We deploy the shop with ops/deploy.sh.",
+   "new": "We deploy the shop with ops/deploy.sh, which needs AWS_PROFILE=prod set in the environment."
+  },
+  {
+   "src": "synthetic",
+   "label": "subsumed",
+   "old_ts": "2026-03-05",
+   "new_ts": "2026-04-02",
+   "old": "The API uses JWT for authentication.",
+   "new": "The API uses JWT for authentication; tokens expire after 15 minutes and are refreshed via /auth/refresh."
+  },
+  {
+   "src": "synthetic",
+   "label": "merge",
+   "old_ts": "2026-03-06",
+   "new_ts": "2026-04-03",
+   "old": "The ingest worker reads from the orders Kafka topic.",
+   "new": "The ingest worker writes enriched orders to the orders_enriched table."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-03-07",
+   "new_ts": "2026-04-04",
+   "old": "The backend stores data in Postgres.",
+   "new": "The analytics pipeline stores events in ClickHouse."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-03-08",
+   "new_ts": "2026-04-05",
+   "old": "Production runs Python 3.12.",
+   "new": "The CI lint job runs on Python 3.11."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-03-09",
+   "new_ts": "2026-04-06",
+   "old": "Python files are indented with tabs.",
+   "new": "YAML files are indented with 2 spaces."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-03-10",
+   "new_ts": "2026-04-07",
+   "old": "Alice owns the billing service.",
+   "new": "Bob owns the search service."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-03-11",
+   "new_ts": "2026-04-08",
+   "old": "We deploy the shop with ops/deploy.sh.",
+   "new": "ops/deploy.sh fails silently when the VPN is down."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-03-12",
+   "new_ts": "2026-04-09",
+   "old": "The public API rate limit is 100 requests per minute.",
+   "new": "The internal API has no rate limit."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-03-13",
+   "new_ts": "2026-04-10",
+   "old": "Lunch on Fridays is at 12:30.",
+   "new": "The shop uses MySQL as its database."
+  },
+  {
+   "src": "synthetic",
+   "label": "pattern",
+   "old_ts": "2026-03-02",
+   "new_ts": "2026-05-11",
+   "old": "On 2026-03-02 the shop deploy failed because AWS_PROFILE was not set in the shell.",
+   "new": "On 2026-05-11 the shop deploy failed again because AWS_PROFILE was missing from the environment."
+  },
+  {
+   "src": "synthetic",
+   "label": "pattern",
+   "old_ts": "2026-04-03",
+   "new_ts": "2026-06-20",
+   "old": "On 2026-04-03 Daniel asked for the PR description to be shortened to three bullet points.",
+   "new": "On 2026-06-20 Daniel again trimmed a long PR description down to a few bullet points."
+  }
+ ]
+}

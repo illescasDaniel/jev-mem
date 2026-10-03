@@ -70,7 +70,8 @@ smallest context. Whether that is worth it depends on how multi-hop your questio
 
 ## Lite mode, more LoCoMo conversations and real project notes
 `recall_mode="lite"` (`JEVMEM_RECALL_MODE=lite`, `jevmem recall --mode lite`, MCP `mode="lite"`) is vector top-20 plus one
-batched Jev relevance filter: no routing, graph, multi-hop or stop rule, so `sufficient` stays `null`. If Jev is down it
+batched Jev relevance filter: no routing, graph, multi-hop or stop rule (it now also judges sufficiency in the same call:
+see [Lite sufficiency](#lite-sufficiency-one-call)). If Jev is down it
 returns the plain vector top-k. `jevmem eval` now reports it as `jevmem-lite`.
 
 **More LoCoMo.** `evals/make_locomo.py N 4` for conversations 1-9 (same recipe as conv-26/index 0, `bge-small`, frozen
@@ -140,8 +141,9 @@ reports `jevmem-auto` by replaying lite and full per question (no extra Jev call
 The default keeps full-mode recall on every set. The saving against running full recall alone (about 9.5k tokens, 5.9
 calls on LoCoMo) is only 15-25% in tokens, because over half the questions look multi-hop or temporal and then pay for both
 calls; latency drops from 1.3-1.5 s to 0.8-1.1 s on average. Lowering the trigger (0.8) saves more but starts losing recall.
-Note that when auto does not escalate it has no `sufficient` signal, so it cannot abstain on those questions (unanswerable
-questions got 1.1-2.2 items on average in auto vs 0.9-1.7 in full).
+When auto does not escalate it keeps lite's `sufficient` signal (lite judges sufficiency in its single call since
+the known-limitations pass), so it abstains like lite (94% of unanswerable questions) rather than like full (98%).
+These numbers led to `auto` becoming the default `recall_mode` (MCP tool, CLI, library); the prompt hook stays on `lite`.
 
 ## Final calibration (pooled, 14 sets, 466 questions)
 `evals/sweep_pooled.py` pools the `jevmem eval --json` output of every set (LoCoMo 0-9, SpaceMaker, srxy, orbit, harbor,
@@ -252,3 +254,101 @@ What this says:
   exact scan is under 0.4 s and needs no tuning.
 - `matrix` and `sqlite-vec` stay exact; at 1M, `matrix` needs ~1.5 GB RAM and `sqlite-vec` is slow only for unscoped searches.
 Caveat: synthetic vectors, one machine, single run each.
+
+## Consolidation
+
+`uv run python evals/consolidation_eval.py evals/consolidation.json evals/consolidation_holdout.json` writes each
+labelled pair into a fresh store and runs the real `Consolidator`. Every pair runs twice: older fact written
+first, and older fact written last (as with imports or backfilled notes). Labels: superseded, contradiction (same
+time), duplicate, subsumed, distinct, merge (compatible complementary facts, which should stay separate), and
+pattern (repeated episodes). `consolidation.json` (40 pairs, 11 from the live SpaceMaker store) was used to pick
+the questions and thresholds; `consolidation_holdout.json` (22 pairs) was written afterwards and not tuned on.
+
+| cases right (both write orders) | old questions | new questions | + reports_change |
+|---|---|---|---|
+| tuning set (80) | 46 | 79 | 80 |
+| held-out (44) | 22 (28 if merge proposals for duplicates count) | 43 | 44 |
+| held-out superseded (14) | 3 (7 filed as contradictions) | 13 | 14 |
+| false flags on distinct pairs (held-out, 14) | 0 | 0 | 0 |
+| fresh held-out `consolidation_holdout2.json` (32) | | | 32 |
+
+What the old questions got wrong:
+- "Does `new_memory` replace the candidate?" is directional, but `new_memory` is only the note written last. When
+  the stale note was written last (all three stale notes in the SpaceMaker trial store) it answered no.
+- Contradiction and obsolescence both fire for "same question, different answer", and contradiction won, so
+  ordinary updates were filed as contradictions instead of superseding the older note.
+- The keep_separate/merge choice picked "merge" at 0.91-0.97 for distinct facts (four of five live SpaceMaker
+  proposals were wrong), so merge proposals had to be judged by the agent.
+
+The new questions are symmetric or asked in both directions, and code decides from timestamps which note is
+older. Coverage questions ("is every fact of A in B?", both ways) separate duplicates (both >= 0.78) and subsumed
+notes (one way >= 0.86) from everything else (<= 0.42). Repeated episodes score 0.81-0.90 on the pattern question
+and other pairs <= 0.59. Jev's probabilities vary slightly between runs (one superseded pair sits at the
+threshold). On the live SpaceMaker store (82 notes) `jevmem consolidate --all` flagged exactly its three
+stale notes, with no other flags. These are small hand-made sets: treat them as indications.
+
+**Renames worded differently (`reports_change`).** The two misses left were renames where the stale note was written
+last ("gallery index folder is named converted/" vs "renamed the library folder converted/ to processed/"): with the
+stale note in the `new_memory` slot, `outdated` fell from 0.81-0.95 to 0.64-0.71. A directional question, "does X
+report that something stated in Y has since changed (renamed, replaced, moved, removed, reassigned, new value)?",
+asked both ways with the max taken, scores the change-reporting note high whichever slot it is in: superseded pairs
+0.68-0.97 (all but one >= 0.81), every distinct/duplicate/subsumed/pattern pair <= 0.65. `conflict_change = 0.80`
+catches both misses; any threshold from 0.70 to 0.85 gives the same result. Because the held-out misses were looked
+at while designing it, `consolidation_holdout2.json` (16 pairs: reworded renames and handovers, near-miss distinct
+pairs on the same subjects) was written afterwards: 32/32. Cost: two more questions per pair, about +20% Jev tokens
+per consolidation call. Rescanning the SpaceMaker store added one correct flag (the old folder-name note is also
+superseded by the rename note) and nothing else.
+
+**Same-timestamp ties.** Two conflicting notes stamped with the same day used to be filed as contradicting. If both
+mention ISO dates, the note whose latest mentioned date is earlier is now treated as the older one ("since
+2026-02-01 ... Netlify" vs "on 2026-07-01 ... moved to GitHub Pages"). Without dates in the text they stay a
+contradiction, which is the honest answer.
+
+## Lite sufficiency (one call)
+Lite recall's single Jev call now also asks the stop rule's two sufficiency questions (`evidence_sufficient`,
+`missing_evidence`) over the candidate items, so lite can say "memory does not know". `evals/sweep_lite.py` pools the
+`jevmem-lite` rows of the 14 calibration sets (466 answers, 291 fully retrieved, 126 unanswerable; truth = answerable
+and every gold note returned):
+
+| thresholds | accuracy | false "sufficient" | false "insufficient" | abstains on unanswerable | answerable flagged insufficient |
+|---|---|---|---|---|---|
+| sufficient >= 0.5, missing < 0.6 (stop-rule defaults) | 0.865 | 30 | 33 | 97% | 11% |
+| **sufficient >= 0.3, missing < 0.7 (new lite defaults)** | **0.893** | 38 | 12 | **94%** | **4%** |
+
+Leave-one-set-out accuracy is the same 0.893, and the optimum is a flat region (0.2-0.4 / 0.7). Full recall abstains on
+98% of the same unanswerable questions, so lite is now close. No extra call, latency unchanged (0.26 s, ~2.3k tokens).
+
+Auto mode could also escalate to full whenever lite says insufficient (`escalate_insufficient`). Replayed on the same
+sets: recall 0.913 -> 0.915 for 3.63 -> 4.50 Jev calls and +24% tokens. Not worth it, so it is off by default; auto
+still reports lite's `sufficient`, so the caller sees "memory does not know" either way.
+
+## Prompt hook injection
+`evals/hook_eval.py evals/hook_prompts.json` runs the real `UserPromptSubmit` hook (autocapture off) against a copy
+of the SpaceMaker store: 22 prompts a note helps with (gold note ids) and 22 where anything injected is noise
+(acknowledgements, generic programming, other projects, and two jevmem prompts seen misfiring live). Recall's
+relevance question let through notes that only shared generic words: "tackle all known limitations" got five MCP
+notes at relevance 0.74-0.84. A stricter per-note question ("is this note about the same specific subject: the same
+component, file, feature, tool or decision?") on lite's top 5 scored off-topic notes <= 0.58 (one 0.65: the
+quality-gate command for "run the tests again") and useful notes >= 0.67.
+
+| hook policy | on-topic prompts with a gold note | off-topic prompts with nothing injected | Jev calls per recalled prompt |
+|---|---|---|---|
+| before: needs_memory >= 0.35, `auto` recall | 16/16 (tuning only) | 14/16 (tuning only) | 2-7 |
+| same-subject filter >= 0.6, needs_memory >= 0.35, `lite` | 19/22 | 21/22 | 2 |
+| **same, needs_memory >= 0.20 (default)** | **21/22** | **19/22** (one is the quality-gate note) | 2 |
+
+The 12 held-out prompts (written after the thresholds were picked) were 12/12 in both rows. With the filter doing
+the precision work, the cheaper needs_memory gate can sit lower: two on-topic prompts scored 0.30-0.37 on it. The hook
+also no longer injects superseded/duplicate/subsumed notes (an explicit recall still shows them, flagged).
+44 prompts on one store: an indication, not a benchmark.
+
+## SessionStart: skip what the instruction files already say
+The SessionStart hook had no query, so it injected the ten highest-confidence conventions; on SpaceMaker nine of
+them restated `AGENTS.md`, which Claude Code loads anyway. Each candidate's embedding is now compared with every
+sentence, bullet and paragraph of `CLAUDE.md`, `CLAUDE.local.md`, `.claude/CLAUDE.md` and `AGENTS.md` (from the
+working directory up to the git root) and `~/.claude/CLAUDE.md`. On the SpaceMaker store (`bge-small`), 19 of the 23
+notes imported from `AGENTS.md` score >= 0.82 against some chunk, and the highest other note scores 0.818 (and that
+one also restates `AGENTS.md`). A Jev coverage check was tried and was weaker. After the change, 8 of the 10
+injected notes are project facts that are in no instruction file. The chunk embeddings are cached in the store's
+meta table by content hash: about 6 s of CPU the first session after an instruction file changes, then nothing.
+

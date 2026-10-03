@@ -1,0 +1,181 @@
+{
+ "about": "Held-out consolidation pairs, written after the thresholds were picked on consolidation.json and never used for tuning. Same labels. pattern: two separate episodes of one repeated behaviour (should become a promote proposal).",
+ "pairs": [
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-02-01",
+   "new_ts": "2026-07-01",
+   "old": "The docs site is hosted on Netlify.",
+   "new": "On 2026-07-01 the docs site moved from Netlify to GitHub Pages."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-01-03",
+   "new_ts": "2026-05-20",
+   "old": "The on-call rotation is weekly, handing over on Mondays.",
+   "new": "The on-call rotation is now two weeks long and hands over on Wednesdays."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-03-14",
+   "new_ts": "2026-08-01",
+   "old": "Image uploads are limited to 10 MB.",
+   "new": "Image uploads are limited to 25 MB."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-04-02",
+   "new_ts": "2026-09-11",
+   "old": "Secrets are read from a .env file in the repo root.",
+   "new": "Since 2026-09-11 secrets come from 1Password via `op run`; the .env file was deleted."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-02-22",
+   "new_ts": "2026-06-30",
+   "old": "The linter is flake8 with the black formatter.",
+   "new": "The project replaced flake8 and black with ruff for linting and formatting."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-01-12",
+   "new_ts": "2026-03-30",
+   "old": "Carol is the tech lead of the payments team.",
+   "new": "Dave became tech lead of the payments team on 2026-03-30 after Carol moved to platform."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-05-05",
+   "new_ts": "2026-09-01",
+   "old": "The CLI entry point is scripts/run.py.",
+   "new": "The CLI entry point is the `acme` console script defined in pyproject.toml; scripts/run.py was removed."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-06-06",
+   "new_ts": "2026-06-06",
+   "old": "The worker pool has 8 processes.",
+   "new": "The worker pool has 16 processes."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-06-07",
+   "new_ts": "2026-06-07",
+   "old": "Invoices are generated on the first day of each month.",
+   "new": "Invoices are generated on the last day of each month."
+  },
+  {
+   "src": "synthetic",
+   "label": "duplicate",
+   "old_ts": "2026-02-02",
+   "new_ts": "2026-04-04",
+   "old": "Use `make lint` before pushing.",
+   "new": "Run `make lint` prior to every push."
+  },
+  {
+   "src": "synthetic",
+   "label": "duplicate",
+   "old_ts": "2026-02-03",
+   "new_ts": "2026-04-05",
+   "old": "The mobile app's minimum Android version is Android 10.",
+   "new": "Android 10 is the oldest Android version the mobile app supports."
+  },
+  {
+   "src": "synthetic",
+   "label": "subsumed",
+   "old_ts": "2026-02-04",
+   "new_ts": "2026-04-06",
+   "old": "The search service uses Elasticsearch.",
+   "new": "The search service uses Elasticsearch 8 with one index per tenant, rebuilt nightly."
+  },
+  {
+   "src": "synthetic",
+   "label": "subsumed",
+   "old_ts": "2026-05-04",
+   "new_ts": "2026-02-06",
+   "old": "Staging deploys are triggered by merging to the develop branch and take about 6 minutes.",
+   "new": "Staging deploys are triggered by merging to develop."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-05",
+   "new_ts": "2026-04-07",
+   "old": "The search service uses Elasticsearch.",
+   "new": "The logging stack uses OpenSearch."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-06",
+   "new_ts": "2026-04-08",
+   "old": "Image uploads are limited to 10 MB.",
+   "new": "Video uploads are limited to 500 MB."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-07",
+   "new_ts": "2026-04-09",
+   "old": "Carol is the tech lead of the payments team.",
+   "new": "Carol prefers design reviews to happen asynchronously in the PR."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-08",
+   "new_ts": "2026-04-10",
+   "old": "The worker pool has 8 processes.",
+   "new": "Each worker process handles at most 100 jobs before it is recycled."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-09",
+   "new_ts": "2026-04-11",
+   "old": "Secrets are read from a .env file in the repo root.",
+   "new": "The .env file is listed in .gitignore."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-10",
+   "new_ts": "2026-04-12",
+   "old": "The project replaced flake8 and black with ruff for linting and formatting.",
+   "new": "Type checking runs with mypy in strict mode."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-11",
+   "new_ts": "2026-04-13",
+   "old": "Use `make lint` before pushing.",
+   "new": "Use `make test` before opening a pull request."
+  },
+  {
+   "src": "synthetic",
+   "label": "pattern",
+   "old_ts": "2026-02-14",
+   "new_ts": "2026-07-08",
+   "old": "On 2026-02-14 the nightly import timed out while the backup job was running.",
+   "new": "On 2026-07-08 the nightly import timed out again during the backup window."
+  },
+  {
+   "src": "synthetic",
+   "label": "pattern",
+   "old_ts": "2026-03-21",
+   "new_ts": "2026-08-02",
+   "old": "On 2026-03-21 a flaky test in tests/test_sync.py passed on rerun.",
+   "new": "On 2026-08-02 tests/test_sync.py failed once in CI and passed on rerun."
+  }
+ ]
+}

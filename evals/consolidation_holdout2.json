@@ -1,0 +1,133 @@
+{
+ "about": "Fresh held-out pairs written after conflict_change was picked (2026-10-03), aimed at renames/replacements worded differently and near-miss distinct pairs. Never used for tuning.",
+ "pairs": [
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-01-10",
+   "new_ts": "2026-06-02",
+   "old": "The mobile team's standup is at 9:30.",
+   "new": "Starting June the mobile standup happens at 10:15 instead."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-02-01",
+   "new_ts": "2026-08-20",
+   "old": "Error reports go to Sentry.",
+   "new": "We dropped Sentry; crash reports are now collected by Bugsnag."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-03-05",
+   "new_ts": "2026-07-07",
+   "old": "The config loader lives in app/settings.py.",
+   "new": "app/settings.py was split up: configuration loading moved to app/config/loader.py."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-01-20",
+   "new_ts": "2026-05-14",
+   "old": "Erin maintains the release scripts.",
+   "new": "Release scripts were handed over from Erin to Frank in May."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-04-01",
+   "new_ts": "2026-09-09",
+   "old": "The public bucket is called acme-assets.",
+   "new": "acme-assets got a new name, acme-public-media, during the storage migration."
+  },
+  {
+   "src": "synthetic",
+   "label": "superseded",
+   "old_ts": "2026-02-11",
+   "new_ts": "2026-06-30",
+   "old": "Nightly builds are kept for 30 days.",
+   "new": "Retention of nightly builds was cut to one week to save storage."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-05-05",
+   "new_ts": "2026-05-05",
+   "old": "The API gateway timeout is 30 seconds.",
+   "new": "The API gateway timeout is 60 seconds."
+  },
+  {
+   "src": "synthetic",
+   "label": "contradiction",
+   "old_ts": "2026-05-06",
+   "new_ts": "2026-05-06",
+   "old": "Grace owns the data pipeline.",
+   "new": "Heidi owns the data pipeline."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-01",
+   "new_ts": "2026-04-01",
+   "old": "Error reports go to Sentry.",
+   "new": "Sentry alerts are routed to the #oncall Slack channel."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-02",
+   "new_ts": "2026-04-02",
+   "old": "The config loader lives in app/settings.py.",
+   "new": "Environment variables override values from app/settings.py."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-03",
+   "new_ts": "2026-04-03",
+   "old": "Erin maintains the release scripts.",
+   "new": "Erin also reviews all changes to the CI workflows."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-04",
+   "new_ts": "2026-04-04",
+   "old": "The public bucket is called acme-assets.",
+   "new": "The private bucket is called acme-internal."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-05",
+   "new_ts": "2026-04-05",
+   "old": "Nightly builds are kept for 30 days.",
+   "new": "Release builds are kept forever."
+  },
+  {
+   "src": "synthetic",
+   "label": "distinct",
+   "old_ts": "2026-02-06",
+   "new_ts": "2026-04-06",
+   "old": "The project moved its docs to MkDocs in 2025.",
+   "new": "The project's docs are deployed by the docs.yml workflow."
+  },
+  {
+   "src": "synthetic",
+   "label": "duplicate",
+   "old_ts": "2026-02-07",
+   "new_ts": "2026-04-07",
+   "old": "The API gateway timeout is 30 seconds.",
+   "new": "Requests through the API gateway time out after 30 s."
+  },
+  {
+   "src": "synthetic",
+   "label": "subsumed",
+   "old_ts": "2026-02-08",
+   "new_ts": "2026-04-08",
+   "old": "Grace owns the data pipeline.",
+   "new": "Grace owns the data pipeline and is the contact for its on-call escalations."
+  }
+ ]
+}

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 import os
+import threading
 
 from mcp.server.mcpserver import MCPServer
 
@@ -10,6 +12,16 @@ from .service import Service
 
 mcp = MCPServer("jevmem")
 _svc: Service | None = None
+_lock = threading.Lock()   # sync tools run on any worker thread: one SQLite connection, one call at a time
+
+
+def tool(fn):
+    """`mcp.tool()` that serializes calls, so concurrent tool calls never interleave on the shared connection."""
+    @functools.wraps(fn)
+    def locked(*args, **kwargs):
+        with _lock:
+            return fn(*args, **kwargs)
+    return mcp.tool()(locked)
 
 
 def svc() -> Service:
@@ -23,13 +35,16 @@ def _scope(scope: str | None) -> str:
     return scope or os.environ.get("JEVMEM_SCOPE", "global")
 
 
-@mcp.tool()
+@tool
 def memory_write(content: str, scope: str | None = None, entities: list[str] | None = None,
-                 timestamp: str | None = None, source: str | None = None) -> dict:
+                 timestamp: str | None = None, source: str | None = None, pinned: bool = False) -> dict:
     """Store ONE literal fact (decision, bugfix, convention, gotcha, preference, event).
     Use explicit entity names and ABSOLUTE dates (never 'yesterday'): the memory model reads literally.
-    Content that looks like instructions to an agent is rejected. scope: 'global' or e.g. 'project:<name>'."""
+    Content that looks like instructions to an agent is rejected. scope: 'global' or e.g. 'project:<name>'.
+    pinned=True only when the user says this must always be remembered: pinned notes open every session."""
     r, rep = svc().write(content, _scope(scope), entities, timestamp, source)
+    if pinned and r.node_id is not None and not r.rejected:
+        svc().store.set_pinned(r.node_id)
     top = sorted(r.type_scores.items(), key=lambda kv: -kv[1])[:3]
     return {"node_id": r.node_id, "rejected": r.rejected, "reason": r.reason, "degraded": r.degraded,
             "top_types": top, "edges": [{"src": a, "dst": b, "kind": k, "p": round(p, 2)}
@@ -37,13 +52,14 @@ def memory_write(content: str, scope: str | None = None, entities: list[str] | N
             "consolidation": dataclasses.asdict(rep) if rep else None}
 
 
-@mcp.tool()
+@tool
 def memory_recall(query: str, scope: str | None = None, max_items: int = 8, mode: str | None = None) -> dict:
     """Adaptive recall. Check `sufficient`/`missing`: if sufficient is false, the memory may lack the answer,
     so verify in code/docs rather than assuming. Searches `scope` plus global.
-    mode: "full" (default; multi-hop, abstains) or "lite" (vector top-20 + one Jev relevance filter: ~4x cheaper,
-    no multi-hop and `sufficient` is null, so it cannot tell you the memory lacks an answer) or "auto" (lite first,
-    escalates to full when nothing is found or the question looks multi-hop; `stop_reason` says which ran)."""
+    mode: "auto" (default: lite first, escalates to full when lite finds nothing or the question looks
+    multi-hop/time-related; `stop_reason` says which ran), "full" (always multi-hop graph expansion: use it when you
+    know the answer joins several facts) or "lite" (vector top-20 + one Jev call that filters them and judges
+    sufficiency: ~4x cheaper than full, no multi-hop)."""
     r = svc().retriever.recall(query, [_scope(scope)] if (scope or os.environ.get("JEVMEM_SCOPE")) else None,
                                max_items, mode)
     return {"evidence": [{"id": e.id, "content": e.content, "timestamp": e.timestamp, "scope": e.scope,
@@ -52,7 +68,16 @@ def memory_recall(query: str, scope: str | None = None, max_items: int = 8, mode
             "stop_reason": r.stop_reason, "jev_calls": r.jev_calls}
 
 
-@mcp.tool()
+@tool
+def memory_pin(node_id: int, pinned: bool = True) -> dict:
+    """Pin (or unpin) a note the user wants in every session; SessionStart injects pinned notes first."""
+    if svc().store.get(node_id) is None:
+        return {"ok": False, "error": "no such note"}
+    svc().store.set_pinned(node_id, pinned)
+    return {"ok": True}
+
+
+@tool
 def memory_list(scope: str | None = None, limit: int = 30) -> list[dict]:
     """List stored memories (newest first) with their top memory types."""
     nodes = svc().store.nodes(svc().scopes(scope), limit, newest_first=True)
@@ -60,7 +85,7 @@ def memory_list(scope: str | None = None, limit: int = 30) -> list[dict]:
              "top_types": sorted((n.type_scores or {}).items(), key=lambda kv: -kv[1])[:2]} for n in nodes]
 
 
-@mcp.tool()
+@tool
 def memory_forget(node_id: int) -> dict:
     """Delete a memory and its edges."""
     existed = svc().store.get(node_id) is not None
@@ -68,38 +93,40 @@ def memory_forget(node_id: int) -> dict:
     return {"deleted": existed}
 
 
-@mcp.tool()
+@tool
 def memory_pending_synthesis() -> list[dict]:
     """Merge/promote proposals from consolidation. YOU are the writer: for each item follow `instruction`,
     then call memory_resolve(synthesis_id, text), or memory_dismiss if the proposal is wrong."""
     return svc().consolidator.pending()
 
 
-@mcp.tool()
+@tool
 def memory_resolve(synthesis_id: int, text: str) -> dict:
     """Store your synthesized fact for a pending proposal. Source notes are kept (merged ones rank lower)."""
     return svc().consolidator.resolve(synthesis_id, text)
 
 
-@mcp.tool()
+@tool
 def memory_dismiss(synthesis_id: int) -> dict:
     """Reject a merge/promote proposal."""
     return svc().consolidator.dismiss(synthesis_id)
 
 
-@mcp.tool()
-def memory_consolidate() -> dict:
-    """Run a consolidation pass now (also runs automatically every 20 writes)."""
-    return dataclasses.asdict(svc().consolidator.run())
+@tool
+def memory_consolidate(all_notes: bool = False) -> dict:
+    """Run a consolidation pass now (also runs automatically every 20 writes). all_notes=True re-judges every
+    stored note from scratch (slow: one Jev call per note); use it once after upgrading jevmem."""
+    c = svc().consolidator
+    return dataclasses.asdict(c.rescan() if all_notes else c.run())
 
 
-@mcp.tool()
+@tool
 def memory_stats() -> dict:
     """Node counts, queued (degraded) writes and Jev usage for this server process."""
     return svc().stats()
 
 
-@mcp.tool()
+@tool
 def memory_flush_pending() -> dict:
     """Retry writes queued while Jev was unreachable."""
     return {"resolved": svc().writer.flush_pending()}

@@ -77,10 +77,13 @@ The result is a **graph**: notes are nodes, edges say "related", "because", "sam
    code) instead of guessing, and abstains cleanly on unanswerable questions.
 
 ### Periodically (`consolidate.py`)
-Every 20 writes Jev compares recent notes with older neighbours: redundant, contradictory, outdated? Nothing is
-deleted. Outdated notes get a `superseded_by` flag (which one is older is decided from timestamps in code);
-merge/promote proposals wait in a queue and **Claude writes the summary** (`memory_pending_synthesis` ->
-`memory_resolve`). This is the System-Two half of the loop.
+Every 20 writes Jev compares recent notes with older neighbours. Each question is order-neutral: do the two
+answer the same question differently? does one outdate the other? does either report that what the other says has
+changed? does either state every fact of the other? Nothing is deleted. Code then decides from timestamps (or, for
+equal timestamps, from dates in the text) which note is older: the older side of a conflict gets a
+`superseded_by` flag (nothing to order by: both get `contradicts`), and a note fully covered by another gets
+`duplicate_of` / `subsumed_by`. Repeated episodes become promote proposals and **Claude writes the general
+pattern** (`memory_pending_synthesis` -> `memory_resolve`). This is the System-Two half of the loop.
 
 ### Safety rule
 Notes are **data, not instructions**. Recalled text is shown to the agent as evidence; the skill tells Claude
@@ -97,7 +100,7 @@ single file inside your process: no server, no setup, transactions, and a small 
 | `edges` | typed links between notes (semantic, temporal, causal, entity) with weights |
 | `fts` | an FTS5 full-text index (keyword search with BM25 ranking) |
 | `node_entities` | entity -> note lookup, so entity search is an indexed query |
-| `flags`, `pending`, `synth`, `meta` | superseded/merged marks, queued degraded writes, synthesis queue, counters |
+| `flags`, `pending`, `synth`, `meta` | superseded/contradicts/duplicate/subsumed/merged/pinned marks, queued degraded writes, synthesis queue, counters |
 
 **Scopes** partition memory: `global`, `project:<name>`, `agent:<name>`. A project's agents share the project
 scope and keep private notes in their own. Every search is scope-filtered.
@@ -196,5 +199,5 @@ A plain top-5 vector search would send five notes and might miss the cause. That
 - **Embedding / cosine similarity**: text as numbers / how close two such vectors are.
 - **ANN / HNSW**: approximate nearest-neighbour search / a popular graph-based ANN structure.
 - **Fail open**: when Jev is down, memory degrades instead of blocking the agent.
-- **Consolidation**: periodic pass that flags contradictions and obsolete notes and queues merges for Claude.
+- **Consolidation**: periodic pass that flags stale, contradicting and duplicate notes and queues patterns for Claude.
 - **MCP**: Model Context Protocol, how Claude Code talks to the jevmem server.

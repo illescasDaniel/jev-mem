@@ -1,6 +1,6 @@
 """All question templates. State is named JSON; instructions reference fields by path.
 Each question is narrow and independent (typesafe-ai skill); keys are bookkeeping only."""
-from .decider import ChoiceQ, NoulQ, Question
+from .decider import NoulQ, Question
 
 MEMORY_TYPES = ("episodic", "semantic", "procedural", "preference",
                 "decision", "bugfix", "convention", "gotcha")
@@ -122,30 +122,49 @@ def candidate_questions(n: int) -> dict[str, Question]:
 
 
 def consolidation_questions(n: int) -> dict[str, Question]:
-    """Per (new_memory, candidates[i]) pair. Judged from the supplied accounts only."""
+    """Per (new_memory, candidates[i]) pair, judged from the supplied accounts only.
+    Every question is symmetric or asked in both directions: "new_memory" is only the note written last, which is
+    not always the newer fact (backfilled notes, imports). Which note is older is decided in code from timestamps.
+    Measured on evals/consolidation*.json: a directional "does new replace old?" missed most reversed pairs and
+    a merge/keep_separate choice preferred "merge" for distinct facts. "reports_change" is directional but asked
+    both ways (the code takes the max): the note describing a rename scores high whichever slot it is in."""
     q: dict[str, Question] = {}
     for i in range(n):
-        c = f"candidates[{i}].content"
-        q[f"pair_{i}_redundant"] = NoulQ(
-            f"Does `new_memory.content` state essentially the same fact as `{c}`, adding no distinct detail? "
-            "true: the two are duplicates or paraphrases. false: each has details the other lacks.")
-        q[f"pair_{i}_contradiction"] = NoulQ(
-            f"Do `new_memory.content` and `{c}` make incompatible claims about the same subject? "
-            "true: they cannot both be true as stated. false: compatible, unrelated, or one is more specific.")
-        q[f"pair_{i}_obsolescence"] = NoulQ(
-            f"Does `new_memory.content` update or replace the fact in `{c}`, making the candidate outdated? "
-            "true: the new account changes a decision, value or state described by the candidate. "
-            "false: the candidate is still valid alongside the new account.")
+        c = f"`candidates[{i}].content`"
+        q[f"pair_{i}_same_question"] = NoulQ(
+            f"Do `new_memory.content` and {c} both answer the same specific question about the same thing, such as "
+            "which tool, database, folder name, owner, version, limit, schedule or rule applies? true: both give an "
+            "answer to one shared specific question. false: they are about different things or different aspects "
+            "of the same thing.")
+        q[f"pair_{i}_different_answer"] = NoulQ(
+            f"Do `new_memory.content` and {c} give different answers about the same thing (a different value, "
+            "name, owner, number, tool, location or rule)? true: at least one shared detail has a different value. "
+            "false: every shared detail agrees, or they share no detail.")
+        q[f"pair_{i}_outdated"] = NoulQ(
+            f"Does one of `new_memory.content` and {c} show that a claim in the other is outdated or no longer "
+            "true, for example a changed value, name, tool, location, owner or rule? Either one may be the newer "
+            "account. true: both cannot be current at the same time. false: both can be true at the same time.")
+        for k, x, y in (("new", "`new_memory.content`", c), ("candidate", c, "`new_memory.content`")):
+            q[f"pair_{i}_{k}_reports_change"] = NoulQ(
+                f"Does {x} report that something stated in {y} has since changed: it was renamed, replaced, moved, "
+                f"removed, reassigned or given a new value? true: {x} describes the change or the new state that "
+                f"replaced what {y} says. false: {x} adds detail, agrees, or is about something else.")
+        q[f"pair_{i}_new_covers"] = NoulQ(
+            f"Is every fact stated in {c} also stated in `new_memory.content`, possibly in other words? true: {c} "
+            f"adds nothing that `new_memory.content` lacks. false: {c} contains at least one fact that "
+            "`new_memory.content` does not state.")
+        q[f"pair_{i}_candidate_covers"] = NoulQ(
+            f"Is every fact stated in `new_memory.content` also stated in {c}, possibly in other words? true: "
+            f"`new_memory.content` adds nothing that {c} lacks. false: `new_memory.content` contains at least one "
+            f"fact that {c} does not state.")
         q[f"pair_{i}_link_usefulness"] = NoulQ(
-            f"Would linking `new_memory.content` and `{c}` help retrieve one when the other is relevant? "
+            f"Would linking `new_memory.content` and {c} help retrieve one when the other is relevant? "
             "true: a specific shared topic, fact or event. false: only generic vocabulary.")
-        q[f"pair_{i}_representation"] = ChoiceQ(
-            f"Compare `new_memory.content` with `{c}`. Which representation best fits the relationship "
-            "between these two observations? Judge only from the supplied accounts.",
-            {"keep_separate": "Contradictory accounts, unique details a combined form would lose, or distinct facts.",
-             "merge": "Compatible accounts of the same fact or event that can be combined without losing details.",
-             "promote": "Distinct repeated episodes that support a stable general pattern.",
-             "uncertain": "Insufficient evidence to choose a safe combined or separate representation."})
+        q[f"pair_{i}_pattern"] = NoulQ(
+            f"Are `new_memory.content` and {c} two distinct occurrences of the same kind of event or behavior "
+            "that together suggest a stable general pattern (for example the same mistake or preference showing "
+            "up twice)? true: separate repeated episodes of one pattern. false: one fact stated twice, unrelated "
+            "events, or general rules rather than episodes.")
     return q
 
 
@@ -162,9 +181,26 @@ def relevance_questions(n: int) -> dict[str, Question]:
             for i in range(n)}
 
 
+def topic_questions(n: int) -> dict[str, Question]:
+    """Stricter than relevance, for unprompted injection (UserPromptSubmit hook): same subject, not shared words."""
+    return {f"item_{i}": NoulQ(f"Is `items[{i}]` about the same specific subject that `goal` is about (the same "
+                               "component, file, feature, tool or decision)? true: the item states something about "
+                               "that exact subject. false: they only share generic words (e.g. tests, files, "
+                               "limitations, MCP, folders) or a broad area.")
+            for i in range(n)}
+
+
 def lite_escalation_questions() -> dict[str, Question]:
-    """Ride along in lite recall's single Jev call (free) so "auto" mode can decide whether to escalate."""
-    return {"multi_hop": NoulQ("Does answering `goal` require combining several separate facts? "
+    """Ride along in lite recall's single Jev call (no extra round trip): the sufficiency pair lets lite say "memory
+    does not know", and multi_hop/temporal let "auto" mode decide whether to escalate."""
+    return {"evidence_sufficient": NoulQ("Do `items` contain support for every factual part of an answer to `goal`? "
+                                         "Ignore items that are unrelated to `goal`. true: a grounded answer can be "
+                                         "given from these items without inventing facts. false: any required fact "
+                                         "is unsupported; related topics alone are insufficient."),
+            "missing_evidence": NoulQ("Is there a fact required to answer `goal` that no item in `items` contains? "
+                                      "true: an identifiable required fact is absent. false: nothing required is "
+                                      "absent."),
+            "multi_hop": NoulQ("Does answering `goal` require combining several separate facts? "
                                "true: two or more facts must be joined. false: a single fact suffices."),
             "temporal": NoulQ("Does answering `goal` require event dates, durations, ordering or changes over time? "
                               "true: a time relation is needed. false: dates or ordering are incidental.")}

@@ -1,0 +1,296 @@
+{
+ "about": "UserPromptSubmit injection eval against the SpaceMaker store (~/.jevmem/spacemaker.db, scope project:spacemaker). on: prompts a stored note helps with (gold = note ids, any one is enough); off: prompts where injecting anything is noise (conversational, other projects, generic programming). The first two off prompts were seen misfiring live on 2026-10-03. split=holdout prompts were written after hook_topic_min was picked and never used to tune it.",
+ "prompts": [
+  {
+   "label": "off",
+   "prompt": "awesome. mcp server restarted. tackle all known limitations if possible",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "let's tackle these jevmem limitations: consolidation misses factual contradictions and most supersedes cases",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "how do I reverse a list in python without copying it?",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "run the tests again and show me the failures",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "ok that looks good, go ahead and commit it",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "what's the difference between asyncio.gather and a TaskGroup?",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "explain what this regex does: ^(?:[a-z0-9]+\\.)*example\\.com$",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "can you make the jevmem consolidation eval faster? it takes minutes",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "write a haiku about autumn for my sister's card",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "summarize what we did in this conversation so far",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "the Jev decider returns probabilities that vary between runs, how should I calibrate thresholds?",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "no, I meant the other file, the one you edited before",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "add a --verbose flag to the jevmem CLI eval command",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "what is the time complexity of heapq.nsmallest?",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "please fix the typo in the README intro paragraph",
+   "split": "tune"
+  },
+  {
+   "label": "off",
+   "prompt": "in my other project the Rust build fails with a linker error about libssl, any ideas?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    29,
+    30
+   ],
+   "prompt": "add a CPU fallback encoder for video when no GPU is available",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    28,
+    70
+   ],
+   "prompt": "what avifenc settings do we use for images?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    42
+   ],
+   "prompt": "clean up the mount directory with shutil.rmtree after unmounting",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    44
+   ],
+   "prompt": "the H.264 export progress bar jumps straight to 99%, why?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    47
+   ],
+   "prompt": "AppImage CI fails installing libasound2 on ubuntu 24.04",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    33
+   ],
+   "prompt": "write unit tests for the new thumbnail cache",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    37,
+    36
+   ],
+   "prompt": "where is the network passcode stored and with what permissions?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    38
+   ],
+   "prompt": "which routes does the passcode middleware let through without unlocking?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    26,
+    74
+   ],
+   "prompt": "rename the processed folder back to converted",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    61
+   ],
+   "prompt": "after deleting a gallery item should we reload the timeline?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    50,
+    49
+   ],
+   "prompt": "set up notarization for the macOS build",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    73
+   ],
+   "prompt": "add MTP support for Android phones",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    39
+   ],
+   "prompt": "how do I run the JS tests in web/?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    31
+   ],
+   "prompt": "the encoded AVIF is bigger than the original jpeg, what happens then?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    43
+   ],
+   "prompt": "in Move mode when is the file on the phone deleted?",
+   "split": "tune"
+  },
+  {
+   "label": "on",
+   "gold": [
+    41
+   ],
+   "prompt": "IMG_1.png and IMG_1.jpg both convert to IMG_1.avif, how is that handled?",
+   "split": "tune"
+  },
+  {
+   "split": "holdout",
+   "label": "off",
+   "prompt": "nice, thanks! now update the changelog and the docs accordingly"
+  },
+  {
+   "split": "holdout",
+   "label": "off",
+   "prompt": "what does the walrus operator do in python 3.8?"
+  },
+  {
+   "split": "holdout",
+   "label": "off",
+   "prompt": "why is my docker container on the other laptop running out of memory?"
+  },
+  {
+   "split": "holdout",
+   "label": "off",
+   "prompt": "continue where you left off with the remaining items"
+  },
+  {
+   "split": "holdout",
+   "label": "off",
+   "prompt": "write a commit message for these changes"
+  },
+  {
+   "split": "holdout",
+   "label": "off",
+   "prompt": "can jevmem pinning also work for global notes?"
+  },
+  {
+   "split": "holdout",
+   "label": "on",
+   "gold": [
+    32
+   ],
+   "prompt": "what happens when an encode fails twice?"
+  },
+  {
+   "split": "holdout",
+   "label": "on",
+   "gold": [
+    69
+   ],
+   "prompt": "make convert-media write outputs straight into processed/"
+  },
+  {
+   "split": "holdout",
+   "label": "on",
+   "gold": [
+    68
+   ],
+   "prompt": "thumbnails are cropped, should they fill the tile?"
+  },
+  {
+   "split": "holdout",
+   "label": "on",
+   "gold": [
+    63
+   ],
+   "prompt": "mouse wheel scrolling in the desktop window feels jumpy"
+  },
+  {
+   "split": "holdout",
+   "label": "on",
+   "gold": [
+    71
+   ],
+   "prompt": "Reset gallery fails on Windows because the index file is in use"
+  },
+  {
+   "split": "holdout",
+   "label": "on",
+   "gold": [
+    57
+   ],
+   "prompt": "tools installed with Homebrew are not found by the app on macOS"
+  }
+ ]
+}

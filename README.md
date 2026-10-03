@@ -52,12 +52,13 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 | `TYPESAFE_API_KEY` | Jev key (via `JEVMEM_ENV_FILE`, `~/.jevmem/.env` or `.env`) | required |
 | `JEVMEM_DB` | SQLite file | `~/.jevmem/memory.db` |
 | `JEVMEM_INDEX` | vector index: `auto`, `matrix`, `sqlite-vec`, `qdrant[:path-or-url]`, `lancedb[:path]`, `pgvector:<dsn>` (tuning env vars in [docs/evaluation.md](docs/evaluation.md)) | `auto` |
-| `JEVMEM_RECALL_MODE` | `full` (route, graph expansion, stop rule), `lite` (vector top-20 + one Jev relevance filter) or `auto` (lite first; escalate to full when it finds nothing or the question looks multi-hop/temporal) | `full` (hooks: `auto`) |
+| `JEVMEM_RECALL_MODE` | `auto` (lite first; escalate to full when it finds nothing or the question looks multi-hop/temporal), `full` (route, graph expansion, stop rule) or `lite` (vector top-20 + one Jev relevance filter) | `auto` (prompt hook: `lite` + same-subject filter) |
 | `JEVMEM_SCOPE` | default scope for write/recall | `global` (hooks: `project:<folder name>`) |
 | `JEVMEM_AUTOCAPTURE` | auto-store strongly stated preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
 
-Tools: `memory_write`, `memory_recall`, `memory_list`, `memory_forget`, `memory_stats`,
-`memory_flush_pending`, `memory_consolidate`, `memory_pending_synthesis`, `memory_resolve`, `memory_dismiss`. CLI: `uv run jevmem {write,recall [--mode lite],list,forget,stats,flush,consolidate,pending,resolve,dismiss,reindex,reembed,import-markdown,import-claude-memory,eval,eval-injection}`. The CLI uses `JEVMEM_SCOPE` as its default scope, like the MCP server and hooks.
+Tools: `memory_write` (`pinned=True` for notes that must open every session), `memory_recall`, `memory_list`,
+`memory_forget`, `memory_pin`, `memory_stats`,
+`memory_flush_pending`, `memory_consolidate`, `memory_pending_synthesis`, `memory_resolve`, `memory_dismiss`. CLI: `uv run jevmem {write,recall [--mode auto|full|lite],list,forget,pin [--off],stats,flush,consolidate [--all],pending,resolve,dismiss,reindex,reembed,import-markdown,import-claude-memory,eval,eval-injection}`. The CLI uses `JEVMEM_SCOPE` as its default scope, like the MCP server and hooks.
 
 Write memories as one literal fact with explicit entities and **absolute dates**
 ("on 2024-05-15", not "yesterday"): Jev reads literally and does not do date arithmetic.
@@ -67,15 +68,31 @@ This repo ships both for itself:
 - `.claude/skills/jev-memory/SKILL.md`: when/how to write and recall, phrasing rules, safety.
   Copy the folder to `~/.claude/skills/` to use it in every project.
 - `.claude/settings.json` hooks (fail open: any error injects nothing):
-  - `SessionStart`: injects the strongest stored conventions/gotchas/decisions/preferences (no Jev call).
-  - `UserPromptSubmit`: one Jev call decides whether the prompt needs memory; only then does recall run
-    and inject notes. A strongly stated preference/decision/convention in the prompt is auto-stored
-    (disable with `JEVMEM_AUTOCAPTURE=0`).
+  - `SessionStart` (no Jev call): injects pinned notes first (`jevmem pin <id>` / `memory_pin`), then the strongest
+    stored conventions/gotchas/decisions/preferences, skipping notes that `CLAUDE.md`/`AGENTS.md` already say
+    (embedding similarity, cached per file version) and near-copies of notes already picked.
+  - `UserPromptSubmit`: one Jev call decides whether the prompt needs memory; only then does lite recall run, and a
+    second call keeps only notes about the prompt's specific subject (not ones sharing words like "tests" or "MCP").
+    Superseded notes are never injected. A strongly stated preference/decision/convention in the prompt is
+    auto-stored (disable with `JEVMEM_AUTOCAPTURE=0`).
 - Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`, or from rule files such as
   `AGENTS.md`/`CLAUDE.md` with `uv run jevmem import-markdown AGENTS.md --scope project:<name>` (one note per bullet or
   paragraph; for long decision logs it is better to have your agent write atomic, dated notes).
 - Hook problems (wrong embedder, bad key) are reported to you as a `systemMessage`, not swallowed; transient Jev
   outages still just skip injection.
+
+### 6. What goes where
+jevmem is one of three places an agent keeps knowledge. Each holds a different kind, so keep them from overlapping:
+
+| Kind | Where | Why there |
+|---|---|---|
+| **Current state**: focus, work in progress, blockers, next steps | git-tracked markdown files (e.g. `memory/activeContext.md`, `memory/progress.md`) | small enough to read whole every session; follows the branch; changes show up in PR diffs |
+| **Dated facts that stay true**: decisions and their reasons, bug causes, gotchas, preferences | jevmem | too many to read whole; recalled by relevance |
+| **Rules**: conventions the agent must always follow | `AGENTS.md` / `CLAUDE.md` | always in context, reviewed like code |
+
+Never store current state in jevmem: "next step is X" goes stale the moment the markdown file changes, and nothing
+marks the note outdated. Write the fact that will still be true later ("on 2026-10-02 we chose X because Y") instead.
+Do not copy rules into jevmem either: they are already in context (SessionStart skips most restatements, not all).
 
 ## Safety and housekeeping
 - Writes are screened before storage: credentials (private keys, API tokens, `password is ...`, connection strings
@@ -88,22 +105,52 @@ This repo ships both for itself:
   whoever could write it: do not share a writable memory with people you would not let edit your `AGENTS.md`.
 
 ## Known limitations
-- Consolidation finds many contradictions (for example tabs vs spaces) but misses factual ones that need domain
-  knowledge, and often misses that a new note supersedes an old one. Stale facts persist until someone forgets them;
-  prefer writing the newer fact with a date and forgetting the old note (`jevmem forget <id>`).
-- `lite`/`auto` recall cannot say "memory does not know"; use `full` (the MCP default) when that matters.
-- The SessionStart hook picks conventions/gotchas/decisions by classifier confidence, not importance: keep the few
-  rules that must always hold in your project's `CLAUDE.md`/`AGENTS.md` too. jevmem complements a git-tracked
-  markdown memory bank (reviewable, per branch); it does not replace it.
+- Consolidation judges each new note against its 3 nearest neighbours only. A stale note that is not among them is
+  never compared. Two conflicting notes with the same timestamp and no dates in their text stay flagged as
+  contradicting (there is nothing to order them by). `jevmem forget <id>` remains the manual fix.
+- `auto` recall (the default) reruns a question in full mode only when lite's single Jev call judges it multi-hop or
+  time-related. A multi-hop question misjudged as simple keeps lite's answer: lite cannot notice a missing link that
+  only graph expansion would find, and its "memory does not know" is right on 94% of unanswerable questions (full:
+  98%). Pass `mode="full"` when you know the answer joins several facts.
+- Apart from pinned notes, SessionStart still ranks by classifier confidence: it has no query to rank by. Pin the
+  few notes that matter most.
+- The prompt hook's relevance filter was tuned on 44 prompts against one store. Expect the occasional off-topic
+  note, and tell your agent to ignore it.
+- Scopes are not per branch. A note written on a branch that is later abandoned stays in the store, and notes from
+  unmerged branches rank like any other. (Idea: tag notes with their branch and rank unmerged ones lower.)
+- Status notes go stale silently. A note like "next step is X" is only flagged once a newer note contradicts it;
+  nothing notices that the work moved on. Keep current state in markdown ([What goes where](#6-what-goes-where)).
+  (Idea: reject status-like notes at write time, or let them expire.)
+- SessionStart's `CLAUDE.md`/`AGENTS.md` filter skips 19 of 23 notes restating SpaceMaker's `AGENTS.md`; the other 4
+  still get injected (`Config.instructions_similarity` 0.82 is tuned to avoid skipping unrelated notes).
+- Auto-capture can store a whole chat message. On 2026-10-03 a multi-line reply ("yes, make auto the default ...
+  add those limitations ...") was saved verbatim as a note: no date, a request rather than a fact, and then injected
+  at the next SessionStart. (Idea: skip prompts that are long or multi-paragraph, or store only the sentence that
+  states the preference.)
+- A multi-hop `auto` recall can hit the Jev call/time limit (`stop_reason` `limit:calls/time`): one question over 83
+  notes used 19 Jev calls, returned 8 items and still said `sufficient: false`.
+- When a tool raises, the MCP client only sees "Error executing tool <name>", without the exception, which makes
+  failures hard to diagnose. Run the same operation with the CLI to see the real error.
 
 ## Consolidation
 Every 20 successful writes (inline, ~3-5 s, via `Service.write` / `memory_write`) Jev compares recent notes with
-their 3 nearest older neighbours: redundant? contradictory? outdated? worth linking? merge or promote?
+their 3 nearest older neighbours. The questions are order-neutral (the note written last is not always the newer
+fact: imports and backfilled notes arrive late): same question with a different answer? does one outdate the
+other? does either report that what the other says has changed (renamed, replaced, moved)? does either state every
+fact of the other? repeated episodes of one pattern? worth linking?
 Nothing is deleted or generated. Results only annotate the graph:
-- contradictions are flagged on both notes; an outdated older note is flagged `superseded_by` the newer one
-  (which is older is decided in code from timestamps, not by Jev); both are down-ranked/annotated in recall;
-- merge/promote proposals (selected option and probability >= 0.85, contradiction < 0.85) wait in a queue; the host
-  agent writes the summary text (`memory_pending_synthesis` -> `memory_resolve`). Merged source notes are kept but rank lower.
+- a conflict between notes with different timestamps flags the older one `superseded_by` the newer (the order is
+  decided in code from timestamps, falling back to write time, and for equal timestamps to the latest date each note
+  mentions); a conflict with nothing to order it by flags both `contradicts`;
+- a note that says nothing the other does not is flagged `duplicate_of` / `subsumed_by` it, with no agent work;
+- superseded, duplicate and subsumed notes stay searchable but rank lower and are skipped by the SessionStart hook;
+- only repeated episodes become proposals: the host agent writes the general pattern (`memory_pending_synthesis` ->
+  `memory_resolve`). There are no merge proposals any more: on real notes they mostly paired distinct facts.
+
+After upgrading, run `jevmem consolidate --all` (or `memory_consolidate(all_notes=True)`) once to re-judge notes
+consolidated with the old questions (one Jev call per note). Measured on labelled pairs in both write orders
+(`evals/consolidation_eval.py`, [docs/evaluation.md](docs/evaluation.md#consolidation)): 44/44 held-out cases right
+versus 22/44 before, 32/32 on a second held-out set of reworded renames, with no false flags.
 
 ## Evaluation (short version)
 `uv run jevmem eval --data evals/harbor.json` and `uv run jevmem eval-injection` run live against Jev; details,
@@ -115,13 +162,15 @@ top-5 and `lite` mode (one Jev relevance filter over a vector top-20, `JEVMEM_RE
 a fifth of the Jev tokens; on 57 real commit-history notes full recall scores 1.00 vs 0.90. These are small datasets,
 so treat them as indications, not benchmarks.
 
-**Which recall mode?** `lite`: 1 Jev call, ~0.25 s, no multi-hop and no `sufficient` flag (it cannot say "memory
-does not know"). `full`: ~6 Jev calls, ~1.4 s, better on multi-hop/temporal/inference and abstains on 94% of
-unanswerable questions. `auto` runs lite and escalates to full when lite finds nothing or the same Jev call says the
-question is multi-hop or time-related (`Config.escalate_multi_hop` 0.6 / `escalate_temporal` 0.8): it matched full recall
-on every set we have, at about 15-25% fewer Jev tokens and 0.8-1.1 s instead of 1.3-1.5 s, because roughly half the
-questions escalate. The `UserPromptSubmit` hook uses `auto` (override with `JEVMEM_RECALL_MODE`); the MCP tool
-defaults to `full` so an explicit recall can trust "not found" (`mode="auto"` is available).
+**Which recall mode?** `auto` (the default) runs lite and escalates to full when lite finds nothing or the same Jev
+call says the question is multi-hop or time-related (`Config.escalate_multi_hop` 0.6 / `escalate_temporal` 0.8).
+Pooled over 14 sets (466 questions) it matches full recall (0.911 vs 0.910) for about 40% fewer Jev tokens (6.3k vs
+10.4k per question, 44% of questions escalate) and 0.8-1.1 s instead of 1.3-1.5 s. Auto keeps lite's answer when lite
+says insufficient (escalating as well added 0.002 recall for 24% more tokens; `Config.escalate_insufficient` turns it
+on). `lite`: 1 Jev call, ~0.25 s, no multi-hop; the same call judges sufficiency, so it can say "memory does not know"
+(abstains on 94% of unanswerable questions). `full`: ~6 Jev calls, ~1.4 s, always expands the graph, abstains on 98%.
+The `UserPromptSubmit` hook uses `lite` plus a same-subject filter (override with `JEVMEM_RECALL_MODE`); the MCP tool,
+the CLI and the library default to `auto` (`mode="full"`/`"lite"` force one).
 
 ## Choosing embeddings and a vector index
 - Embeddings: default `hash` is dependency-free but weak; `uv sync --extra embed` + `JEVMEM_EMBEDDER=fastembed`

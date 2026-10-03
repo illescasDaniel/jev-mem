@@ -36,7 +36,7 @@ def rule(state, key, q):
 
 def build():
     s, d = Store(), FakeDecider(rule)
-    return s, d, Writer(s, d), Retriever(s, d)
+    return s, d, Writer(s, d), Retriever(s, d, Config(recall_mode="full"))   # these tests exercise the graph
 
 
 def test_write_builds_edges_and_types():

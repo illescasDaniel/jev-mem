@@ -1,11 +1,14 @@
 """Periodic consolidation (paper 3.2, App. B.3). Jev judges; nothing is deleted or generated.
 
-For each recently written note vs. a few older neighbours, one batched call asks: redundant? contradictory?
-obsolete? worth linking? and which representation fits (keep_separate/merge/promote/uncertain).
-Outcomes only annotate the graph: flags (contradicts, superseded_by), extra semantic edges, and a queue of
-merge/promote proposals that the host agent (System Two) writes up via resolve()."""
+For each recently written note vs. a few older neighbours, one batched call asks order-neutral questions: same
+question with a different answer? one outdates the other? does either state every fact of the other? worth
+linking? repeated episodes of one pattern? Code then decides from timestamps which note is older.
+Outcomes only annotate the graph: flags (superseded_by, contradicts, duplicate_of, subsumed_by), extra semantic
+edges, and a queue of promote proposals that the host agent (System Two) writes up via resolve()."""
 from __future__ import annotations
 
+import dataclasses
+import re
 from dataclasses import dataclass
 
 from .config import Config
@@ -15,12 +18,17 @@ from .store import Store
 from .write import UNSCREENED, Writer, iso
 
 
+CONSOLIDATION_FLAGS = ("superseded_by", "contradicts", "duplicate_of", "subsumed_by")
+
+
 @dataclass
 class ConsolidationReport:
     checked: int = 0
     proposals: int = 0
     contradictions: int = 0
     superseded: int = 0
+    duplicates: int = 0
+    subsumed: int = 0
     links: int = 0
     degraded: bool = False
 
@@ -58,25 +66,48 @@ class Consolidator:
         self.store.meta_set("writes_since_consolidation", 0)
         return rep
 
+    def rescan(self) -> ConsolidationReport:
+        """Re-judge every note from scratch, e.g. after upgrading the consolidation questions.
+        Clears the flags consolidation itself set (not merged_into, which records an agent's resolve)."""
+        self.store.clear_flags(*CONSOLIDATION_FLAGS)
+        self.store.meta_set("last_consolidated_id", 0)
+        total = ConsolidationReport()
+        while True:
+            rep = self.run()
+            for k, v in dataclasses.asdict(rep).items():
+                setattr(total, k, v if k == "degraded" else getattr(total, k) + v)
+            if rep.degraded or rep.checked == 0:
+                return total
+
     def _apply(self, new, old, a, rep: ConsolidationReport) -> None:
-        th = self.cfg.consolidate_threshold
-        contradiction = a["contradiction"].p >= th
-        if contradiction:
-            self.store.add_flag(new.id, "contradicts", old.id, a["contradiction"].p)
-            self.store.add_flag(old.id, "contradicts", new.id, a["contradiction"].p)
-            rep.contradictions += 1
-        elif a["obsolescence"].p >= th:
-            # Jev says "one outdates the other"; WHICH is older is decided in code, not by Jev
-            both = new.timestamp is not None and old.timestamp is not None
-            older, newer = (old, new) if (old.timestamp <= new.timestamp if both else old.id < new.id) else (new, old)
-            self.store.add_flag(older.id, "superseded_by", newer.id, a["obsolescence"].p)
-            rep.superseded += 1
-        rep_ans = a["representation"]
-        if (not contradiction and rep_ans.choice in ("merge", "promote")
-                and rep_ans.probs.get(rep_ans.choice, 0.0) >= self.cfg.merge_threshold):
-            if self.store.add_synth(rep_ans.choice, [new.id, old.id], rep_ans.probs[rep_ans.choice]):
+        cfg = self.cfg
+        change = max(a["new_reports_change"].p, a["candidate_reports_change"].p)
+        p_conflict = max(min(a["same_question"].p, a["different_answer"].p), a["outdated"].p, change)
+        conflict = ((a["same_question"].p >= cfg.conflict_same and a["different_answer"].p >= cfg.conflict_different)
+                    or a["outdated"].p >= cfg.conflict_outdated or change >= cfg.conflict_change)
+        new_covers, old_covers = (a["new_covers"].p >= cfg.cover_threshold,
+                                  a["candidate_covers"].p >= cfg.cover_threshold)
+        if conflict:
+            ordered = _older_newer(new, old)
+            if ordered:                  # Jev only says "these clash"; which one is older is decided here
+                older, newer = ordered
+                self.store.add_flag(older.id, "superseded_by", newer.id, p_conflict)
+                rep.superseded += 1
+            else:                        # same time or unknown order: a real contradiction, keep both visible
+                self.store.add_flag(new.id, "contradicts", old.id, p_conflict)
+                self.store.add_flag(old.id, "contradicts", new.id, p_conflict)
+                rep.contradictions += 1
+        elif new_covers and old_covers:  # same facts twice: the later-written copy ranks lower
+            self.store.add_flag(new.id, "duplicate_of", old.id, min(a["new_covers"].p, a["candidate_covers"].p))
+            rep.duplicates += 1
+        elif new_covers or old_covers:   # one note says everything the other does and more
+            short, full, p = ((old, new, a["new_covers"].p) if new_covers else (new, old, a["candidate_covers"].p))
+            self.store.add_flag(short.id, "subsumed_by", full.id, p)
+            rep.subsumed += 1
+        elif a["pattern"].p >= cfg.promote_threshold:
+            if self.store.add_synth("promote", [new.id, old.id], a["pattern"].p):
                 rep.proposals += 1
-        if a["link_usefulness"].p >= self.cfg.relation_threshold and not any(
+        if a["link_usefulness"].p >= cfg.relation_threshold and not any(
                 o == old.id for e, o in self.store.neighbors(new.id, ["semantic"])):
             self.store.add_edge(new.id, old.id, "semantic", a["link_usefulness"].p)
             rep.links += 1
@@ -121,3 +152,18 @@ class Consolidator:
             return {"ok": False, "error": "no such pending synthesis"}
         self.store.synth_close(synth_id, "dismissed")
         return {"ok": True}
+
+
+_DATE = re.compile(r"\b(20\d\d-[01]\d-[0-3]\d)\b")
+
+
+def _older_newer(a, b):
+    """(older, newer) by when the fact happened (timestamp), else by when it was written; None if tied.
+    Write order alone is not enough when timestamps exist: backfilled or imported notes are written late.
+    Equal timestamps (notes stamped with the same day) fall back to the latest date each note mentions."""
+    ta, tb = (a.timestamp, b.timestamp) if a.timestamp is not None and b.timestamp is not None else (a.created, b.created)
+    if ta is not None and ta == tb:
+        ta, tb = max(_DATE.findall(a.content), default=None), max(_DATE.findall(b.content), default=None)
+    if ta is None or tb is None or ta == tb:
+        return None
+    return (a, b) if ta < tb else (b, a)

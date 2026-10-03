@@ -14,6 +14,8 @@ from typing import Protocol
 import numpy as np
 
 EDGE_KINDS = ("semantic", "temporal", "causal", "entity")
+# consolidation flags that mean "another note says this better or more recently": down-ranked in recall
+STALE_FLAGS = ("superseded_by", "merged_into", "duplicate_of", "subsumed_by")
 _TOKEN = re.compile(r"[a-z0-9_]+")
 
 
@@ -79,6 +81,7 @@ class Node:
     type_scores: dict[str, float] | None
     source: str | None = None
     embedding: np.ndarray | None = field(default=None, repr=False)
+    created: float | None = None         # when it was written (not when the fact happened)
 
 
 @dataclass
@@ -96,7 +99,7 @@ def tokens(text: str) -> list[str]:
 class Store:
     def __init__(self, path: str = ":memory:", embedder: Embedder | None = None, index: str | None = None,
                  switch_embedder: bool = False):
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, check_same_thread=False)  # MCP runs tools on worker threads; callers serialize
         self.db.row_factory = sqlite3.Row
         self.path = path
         self._index_spec = index
@@ -218,7 +221,7 @@ class Store:
     def _node(r: sqlite3.Row) -> Node:
         return Node(r["id"], r["content"], r["scope"], r["ts"], json.loads(r["entities"]),
                     json.loads(r["type_scores"]) if r["type_scores"] else None, r["source"],
-                    np.frombuffer(r["emb"], dtype=np.float32) if r["emb"] else None)
+                    np.frombuffer(r["emb"], dtype=np.float32) if r["emb"] else None, r["created"])
 
     def get(self, nid: int) -> Node | None:
         r = self.db.execute("SELECT * FROM nodes WHERE id=?", (nid,)).fetchone()
@@ -357,6 +360,23 @@ class Store:
     def flagged(self, *flags: str) -> set[int]:
         q = ",".join("?" * len(flags))
         return {r[0] for r in self.db.execute(f"SELECT node_id FROM flags WHERE flag IN ({q})", flags)}
+
+    def clear_flags(self, *flags: str) -> None:
+        self.db.execute(f"DELETE FROM flags WHERE flag IN ({','.join('?' * len(flags))})", flags)
+        self.db.commit()
+
+    def set_pinned(self, nid: int, pinned: bool = True) -> None:
+        """A pinned note is one the user marked as always relevant: SessionStart injects it first."""
+        if pinned:
+            self.add_flag(nid, "pinned", nid, 1.0)
+        else:
+            self.db.execute("DELETE FROM flags WHERE node_id=? AND flag='pinned'", (nid,)); self.db.commit()
+
+    def pinned(self) -> set[int]:
+        return self.flagged("pinned")
+
+    def stale(self) -> set[int]:
+        return self.flagged(*STALE_FLAGS)
 
     def flags_of(self, nid: int) -> list[tuple[str, int, float]]:
         return [(r["flag"], r["other_id"], r["p"]) for r in

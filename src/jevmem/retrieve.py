@@ -50,6 +50,21 @@ def largest_remainder(total: float, weights: dict[str, float]) -> dict[str, int]
     return out
 
 
+def escalation(lite: RecallResult, cfg: Config) -> str | None:
+    """Why "auto" mode should rerun a lite result in full mode, or None to keep it."""
+    if lite.degraded:
+        return None
+    if not lite.evidence:
+        return "nothing_found"
+    if lite.routing.get("multi_hop", 0.0) >= cfg.escalate_multi_hop:
+        return "multi_hop"
+    if lite.routing.get("temporal", 0.0) >= cfg.escalate_temporal:
+        return "temporal"
+    if cfg.escalate_insufficient and lite.sufficient is False:
+        return "insufficient"
+    return None
+
+
 class Retriever:
     def __init__(self, store: Store, decider: Decider, config: Config | None = None):
         self.store, self.decider, self.cfg = store, decider, config or Config()
@@ -64,19 +79,18 @@ class Retriever:
     # ------------------------------------------------------------------
     def recall(self, query: str, scopes: list[str] | None = None, k: int | None = None,
                mode: str | None = None) -> RecallResult:
-        """mode "full" (default, `Config.recall_mode`): route, graph expansion, stop rule. "lite": see recall_lite."""
+        """mode (default `Config.recall_mode`, "auto"): "full" = route, graph expansion, stop rule; "lite": see recall_lite;
+        "auto" = lite, rerun in full when `escalation` says so."""
         mode = mode or self.cfg.recall_mode
         if mode == "lite":
             return self.recall_lite(query, scopes, k)
         if mode == "auto":
             lite = self.recall_lite(query, scopes, k)
             hop, tmp = lite.routing.get("multi_hop", 0.0), lite.routing.get("temporal", 0.0)
-            if lite.degraded or (lite.evidence and hop < self.cfg.escalate_multi_hop
-                                 and tmp < self.cfg.escalate_temporal):
+            why = escalation(lite, self.cfg)
+            if why is None:
                 lite.stop_reason = "lite"
                 return lite
-            why = ("nothing_found" if not lite.evidence else "multi_hop" if hop >= self.cfg.escalate_multi_hop
-                   else "temporal")
             res = self.recall(query, scopes, k, mode="full")
             res.jev_calls += lite.jev_calls
             res.stop_reason = f"escalated:{why}>{res.stop_reason}"
@@ -92,7 +106,7 @@ class Retriever:
         beam = [i for i, _ in anchors[:cfg.beam_width]]
         res = RecallResult([], routing={})
 
-        old = self.store.flagged("superseded_by", "merged_into")
+        old = self.store.stale()
 
         def finish(reason: str) -> RecallResult:
             for i in score:
@@ -184,8 +198,9 @@ class Retriever:
             return finish("degraded")
 
     def recall_lite(self, query: str, scopes: list[str] | None = None, k: int | None = None) -> RecallResult:
-        """Vector top-N, then ONE batched Jev relevance filter. No routing, graph, multi-hop or sufficiency check
-        (`sufficient` stays None). Superseded notes rank lower. Degrades to plain vector top-k if Jev is down."""
+        """Vector top-N, then ONE batched Jev relevance filter that also judges whether the candidates answer the
+        query (`sufficient`). No routing, graph or multi-hop. Stale notes rank lower. Degrades to plain vector top-k
+        (`sufficient` None) if Jev is down."""
         cfg, k = self.cfg, k or self.cfg.top_k
         scopes = scopes and list(dict.fromkeys([*scopes, "global"]))
         hidden = set(self.store.pending(UNSCREENED))
@@ -193,7 +208,7 @@ class Retriever:
         res = RecallResult([], stop_reason="lite")
         if not cand:
             return res
-        judge, calls, hop, tmp = [], 0, 0.0, 0.0
+        judge, calls, hop, tmp, suff, miss = [], 0, 0.0, 0.0, 0.0, 1.0
         try:
             for start in range(0, len(cand), cfg.score_chunk * 3):      # 36 per call: one call at the default N=20
                 chunk = cand[start:start + cfg.score_chunk * 3]
@@ -201,6 +216,7 @@ class Retriever:
                     {"goal": query, "items": [{"content": self.store.get(i).content[:MAX_ITEM_CHARS]} for i, _ in chunk]},
                     {**relevance_questions(len(chunk)), **lite_escalation_questions()}); calls += 1
                 hop, tmp = max(hop, a["multi_hop"].p), max(tmp, a["temporal"].p)
+                suff, miss = max(suff, a["evidence_sufficient"].p), min(miss, a["missing_evidence"].p)
                 judge += [(i, sim, a[f"item_{j}"].p) for j, (i, sim) in enumerate(chunk)]
         except DeciderUnavailable:
             res.degraded, res.stop_reason = True, "degraded"
@@ -208,11 +224,15 @@ class Retriever:
             rel_min = -1.0
         else:
             rel_min = cfg.min_relevance
-        old = self.store.flagged("superseded_by", "merged_into")
+        old = self.store.stale()
         scored = [(i, rel * (cfg.superseded_penalty if i in old else 1.0)) for i, _, rel in judge if rel >= rel_min]
         top = sorted(scored, key=lambda t: -t[1])[:k]
         res.evidence = [self._ev(i, s, "vector") for i, s in top]
         res.jev_calls, res.routing = calls, {"multi_hop": hop, "temporal": tmp}
+        if not res.degraded:
+            res.assess = {"sufficient": suff, "missing": miss, "multi_hop": hop, "temporal": tmp}
+            res.sufficient = bool(res.evidence) and suff >= cfg.lite_sufficient and miss < cfg.lite_missing_max
+            res.missing = miss
         return res
 
     # ------------------------------------------------------------------
@@ -230,7 +250,7 @@ class Retriever:
 
     def _ev_state(self, score, via, k):
         top = sorted(score, key=lambda i: -score[i])[:k]
-        old = self.store.flagged("superseded_by", "merged_into")
+        old = self.store.stale()
         out = []
         for i in top:
             n = self.store.get(i)
@@ -242,7 +262,8 @@ class Retriever:
 
     def _ev(self, i, sc, via) -> Evidence:
         n = self.store.get(i)
-        names = {"superseded_by": "superseded", "merged_into": "merged", "contradicts": "contradicts"}
+        names = {"superseded_by": "superseded", "merged_into": "merged", "duplicate_of": "duplicate",
+                 "subsumed_by": "subsumed", "contradicts": "contradicts"}
         flags = [f"{names[f]}:{o}" for f, o, _ in self.store.flags_of(i) if f in names]
         return Evidence(i, n.content, sc, iso(n.timestamp), n.scope, via, flags)
 

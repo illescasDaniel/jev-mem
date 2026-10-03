@@ -7,6 +7,9 @@ def rule(state, key, q):
     if key.startswith("item_"):
         i = int(key.split("_")[1])
         return 0.9 if state["goal"].split()[0] in state["items"][i]["content"] else 0.05
+    if key in ("evidence_sufficient", "missing_evidence") and "items" in state:   # answerable iff an item matches
+        hit = any(state["goal"].split()[0] in it["content"] for it in state["items"])
+        return (0.9 if hit else 0.1) if key == "evidence_sufficient" else (0.1 if hit else 0.9)
     return 0.0
 
 
@@ -23,7 +26,27 @@ def test_lite_is_one_call_and_filters_by_relevance():
     res = r.recall("bicycle tyres", ["project:x"])
     assert d.calls == 1 and res.jev_calls == 1 and res.stop_reason == "lite"
     assert {e.content for e in res.evidence} == {"bicycle repair shop opens at nine", "bicycle tyres were replaced"}
-    assert res.sufficient is None
+    assert res.sufficient is True and res.assess["sufficient"] == 0.9
+
+
+def test_lite_says_memory_does_not_know_in_the_same_call():
+    s, d, r = build()
+    s.add_node("tyres on the car were rotated", "project:x")   # topical but does not answer
+    res = r.recall("unicycle tyres", ["project:x"])
+    assert d.calls == 1 and res.sufficient is False and res.missing == 0.9
+
+
+def test_auto_escalates_when_lite_finds_items_but_says_insufficient():
+    def r2(state, key, q):
+        if key == "evidence_sufficient" and "items" in state:
+            return 0.1
+        return rule(state, key, q)
+    s, _, _ = build()
+    r = Retriever(s, FakeDecider(r2), Config(recall_mode="auto", escalate_insufficient=True))
+    assert r.recall("bicycle tyres", ["project:x"]).stop_reason.startswith("escalated:insufficient")
+    r = Retriever(s, FakeDecider(r2), Config(recall_mode="auto"))           # default: keep lite, report insufficient
+    res = r.recall("bicycle tyres", ["project:x"])
+    assert res.stop_reason == "lite" and res.sufficient is False
 
 
 def test_lite_ranks_superseded_lower_and_respects_k():
@@ -45,9 +68,13 @@ def test_lite_degrades_to_vector_top_k_when_jev_down():
 
 def test_mode_argument_overrides_config():
     s, d, _ = build()
-    full = Retriever(s, d, Config())                      # default config is "full"
+    full = Retriever(s, d, Config(recall_mode="full"))
     assert full.recall("bicycle", ["project:x"], mode="lite").stop_reason == "lite"
     assert full.recall("bicycle", ["project:x"]).stop_reason != "lite"
+
+
+def test_default_mode_is_auto():
+    assert Config().recall_mode == "auto"
 
 
 def test_auto_stays_lite_for_single_fact_and_escalates_when_multi_hop_or_empty():

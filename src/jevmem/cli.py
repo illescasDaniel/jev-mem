@@ -69,11 +69,13 @@ def main(argv: list[str] | None = None) -> None:
     w.add_argument("--entity", action="append"); w.add_argument("--timestamp")
     r = sub.add_parser("recall"); r.add_argument("query"); r.add_argument("--scope", default=env_scope(None)); r.add_argument("-k", type=int, default=8); r.add_argument("--mode", choices=["full", "lite", "auto"])
     l = sub.add_parser("list"); l.add_argument("--scope", default=env_scope(None))
-    sub.add_parser("stats"); sub.add_parser("reindex"); sub.add_parser("reembed"); sub.add_parser("flush"); sub.add_parser("consolidate"); sub.add_parser("pending")
+    sub.add_parser("stats"); sub.add_parser("reindex"); sub.add_parser("reembed"); sub.add_parser("flush"); sub.add_parser("pending")
+    co = sub.add_parser("consolidate"); co.add_argument("--all", action="store_true", help="re-judge every note (after an upgrade)")
     e = sub.add_parser("eval"); e.add_argument("--data", default="evals/orbit.json"); e.add_argument("-k", type=int, default=5); e.add_argument("--json"); e.add_argument("--embedder", help="hash | fastembed[:model]")
     ei = sub.add_parser("eval-injection"); ei.add_argument("--data", default="evals/injection.json")
     h = sub.add_parser("hook"); h.add_argument("event", choices=["session-start", "user-prompt"])
     f = sub.add_parser("forget"); f.add_argument("node_id", type=int)
+    pn = sub.add_parser("pin"); pn.add_argument("node_id", type=int); pn.add_argument("--off", action="store_true")
     rs = sub.add_parser("resolve"); rs.add_argument("synthesis_id", type=int); rs.add_argument("text")
     ds = sub.add_parser("dismiss"); ds.add_argument("synthesis_id", type=int)
     im = sub.add_parser("import-markdown"); im.add_argument("files", nargs="+", type=Path); im.add_argument("--scope", default=env_scope())
@@ -116,6 +118,12 @@ def main(argv: list[str] | None = None) -> None:
         existed = svc.store.get(a.node_id) is not None
         svc.store.delete_node(a.node_id)
         print("deleted" if existed else "no such note")
+    elif a.cmd == "pin":
+        if svc.store.get(a.node_id) is None:
+            print("no such note")
+        else:
+            svc.store.set_pinned(a.node_id, not a.off)
+            print("unpinned" if a.off else "pinned")
     elif a.cmd == "resolve":
         print(json.dumps(svc.consolidator.resolve(a.synthesis_id, a.text)))
     elif a.cmd == "dismiss":
@@ -127,7 +135,8 @@ def main(argv: list[str] | None = None) -> None:
         print(f"index={svc.store.index.name} rows={'n/a (derived lazily)' if n is None else n}")
     elif a.cmd == "consolidate":
         import dataclasses
-        print(json.dumps(dataclasses.asdict(svc.consolidator.run()), indent=2))
+        rep = svc.consolidator.rescan() if a.all else svc.consolidator.run()
+        print(json.dumps(dataclasses.asdict(rep), indent=2))
     elif a.cmd == "pending":
         print(json.dumps(svc.consolidator.pending(), indent=2))
     elif a.cmd == "flush":

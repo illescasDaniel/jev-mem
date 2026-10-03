@@ -27,11 +27,51 @@ def test_session_start_empty_returns_none():
     assert session_start(make(base), {"cwd": "/x/demo"}) is None
 
 
+def conventions(state, key, q):
+    return 0.9 if key == "convention" else base(state, key, q)
+
+
+def test_session_start_skips_what_agents_md_already_says(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "AGENTS.md").write_text("# Rules\n\n- Use tabs for indentation in every source file.\n")
+    sub = tmp_path / "pkg"; sub.mkdir()
+    svc = make(conventions)
+    svc.writer.write("Use tabs for indentation in every source file.", scope="project:pkg")
+    svc.writer.write("Integration tests need the docker compose stack running.", scope="project:pkg")
+    out = session_start(svc, {"cwd": str(sub)})                  # found walking up to the git root
+    assert "docker compose" in out and "tabs" not in out
+
+
+def test_session_start_puts_pinned_notes_first_and_drops_near_duplicates():
+    def rule(state, key, q):
+        if key == "convention":
+            return 0.75 if "Friday" in state["observation"] else 0.95
+        return base(state, key, q)
+    svc = make(rule)
+    for i in range(12):
+        svc.writer.write(f"Convention {i}: module m{i} must stay import-free of module q{i}.", scope="project:demo",
+                         dedupe=False)
+    friday = svc.writer.write("Never deploy on a Friday.", scope="project:demo")
+    assert "Friday" not in session_start(svc, {"cwd": "/x/demo"})   # weakest of 13 conventions, cut at 10
+    svc.store.set_pinned(friday.node_id)
+    out = session_start(svc, {"cwd": "/x/demo"})
+    assert out.splitlines()[1].startswith("- Never deploy on a Friday")
+    svc.store.set_pinned(friday.node_id, False)
+    assert "Friday" not in session_start(svc, {"cwd": "/x/demo"})
+
+
+def test_session_start_skips_a_near_copy_of_a_picked_note():
+    svc = make(conventions)
+    svc.writer.write("We use uv, not pip, for every install.", scope="project:demo")
+    svc.writer.write("We use uv, not pip, for every install!", scope="project:demo", dedupe=False)
+    assert session_start(svc, {"cwd": "/x/demo"}).count("uv, not pip") == 1
+
+
 def test_prompt_hook_injects_only_when_memory_needed():
     def rule(state, key, q):
         if key == "needs_memory":
             return 0.9 if "deploy" in state["query"] else 0.05
-        if key in ("semantic",) or key.endswith("relevance"):
+        if key.startswith("item_"):
             return 0.9
         if key == "evidence_sufficient":
             return 0.99
@@ -42,6 +82,23 @@ def test_prompt_hook_injects_only_when_memory_needed():
     svc.writer.write("Deploy with ops/deploy.sh and set AWS_PROFILE.", scope="project:demo")
     assert "ops/deploy.sh" in user_prompt(svc, {"prompt": "how do we deploy this service?", "cwd": "/x/demo"})
     assert user_prompt(svc, {"prompt": "what is 2 plus 2 exactly?", "cwd": "/x/demo"}) is None
+
+
+def test_prompt_hook_drops_notes_that_only_share_words_with_the_prompt():
+    def rule(state, key, q):
+        if key == "needs_memory":
+            return 0.9
+        if key.startswith("item_"):
+            item = state["items"][int(key.split("_")[1])]["content"]
+            if "same specific subject" in q.instructions:      # the hook's stricter filter
+                return 0.9 if "pytest" in item else 0.3
+            return 0.9                                         # recall's looser relevance lets both through
+        return base(state, key, q)
+    svc = make(rule)
+    svc.writer.write("Run the test suite with pytest -q from the repo root.", scope="project:demo")
+    svc.writer.write("Known limitations of the export are listed in docs/export.md.", scope="project:demo")
+    out = user_prompt(svc, {"prompt": "run the tests and tackle the known limitations", "cwd": "/x/demo"})
+    assert "pytest" in out and "docs/export.md" not in out
 
 
 def test_prompt_hook_captures_strong_preference_and_not_injection(monkeypatch):
@@ -65,3 +122,14 @@ def test_prompt_hook_fails_open():
     d = FakeDecider(); d.down = True
     svc = Service(":memory:", decider=d)
     assert user_prompt(svc, {"prompt": "how do we deploy this service?"}) is None
+
+
+def test_prompt_hook_never_injects_superseded_notes():
+    def rule(state, key, q):
+        return 0.9 if key == "needs_memory" or key.startswith("item_") else base(state, key, q)
+    svc = make(rule)
+    old = svc.writer.write("The default branch is master.", scope="project:demo")
+    new = svc.writer.write("The default branch is main since 2026-10-02.", scope="project:demo")
+    svc.store.add_flag(old.node_id, "superseded_by", new.node_id, 0.9)
+    out = user_prompt(svc, {"prompt": "which branch do we merge pull requests into?", "cwd": "/x/demo"})
+    assert "main since" in out and "is master" not in out
