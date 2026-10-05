@@ -6,12 +6,16 @@ Everything you need to run jevmem with Claude Code or your own agents. For the f
 ## 1. Prerequisites
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
 - Node 22+ (only for the optional [jev-mcp](https://github.com/jkudish/jev-mcp) guardrail tools)
-- A TypeSafe API key (Jev is waitlisted). Put it in `.env`:
-  ```
-  TYPESAFE_API_KEY=...
-  ```
-  jevmem looks for the key in the environment, then in the file named by `JEVMEM_ENV_FILE`, `~/.jevmem/.env` and `./.env`.
-  Without a key, `stats`, `list` and `forget` still work, and recall falls back to plain hybrid search.
+- A decision model, either:
+  - a TypeSafe API key for hosted Jev (waitlisted). Put it in `.env`:
+    ```
+    TYPESAFE_API_KEY=...
+    ```
+    jevmem looks for the key in the environment, then in the file named by `JEVMEM_ENV_FILE`, `~/.jevmem/.env` and `./.env`; or
+  - a local or third-party server that speaks Jev's `/v1/systemone` API, which needs **no Jev key**:
+    set `JEVMEM_BASE_URL` (and `JEVMEM_MODEL`), see [Local and third-party models](#local-and-third-party-models).
+
+  With neither, `stats`, `list` and `forget` still work, and recall falls back to plain hybrid search.
 
 ## 2. Install the Python package
 From PyPI (no clone): `uvx --from jevmem jevmem-mcp` runs the MCP server on demand, `uvx jevmem <command>` runs the CLI,
@@ -72,7 +76,11 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 
 | Env var | Purpose | Default |
 |---|---|---|
-| `TYPESAFE_API_KEY` | Jev key (via `JEVMEM_ENV_FILE`, `~/.jevmem/.env` or `.env`) | required |
+| `TYPESAFE_API_KEY` | hosted Jev key (via `JEVMEM_ENV_FILE`, `~/.jevmem/.env` or `.env`) | required unless `JEVMEM_BASE_URL` is set |
+| `JEVMEM_BASE_URL` | address of a local or third-party Jev-schema server; no Jev key needed | hosted Jev |
+| `JEVMEM_MODEL` | model name sent with every call | the server's default |
+| `JEVMEM_API_KEY` | key for that server, if it wants one (`TYPESAFE_API_KEY` is never sent to it) | none (a placeholder) |
+| `JEVMEM_TIMEOUT` | seconds per decision call | `60` |
 | `JEVMEM_DB` | SQLite file | `~/.jevmem/memory.db` |
 | `JEVMEM_INDEX` | vector index: `auto`, `matrix`, `sqlite-vec`, `qdrant[:path-or-url]`, `lancedb[:path]`, `pgvector:<dsn>` (tuning env vars in [evaluation.md](evaluation.md)) | `auto` |
 | `JEVMEM_EMBEDDER` | `fastembed` (local ONNX model) or `hash` (dependency-free, weak) | `fastembed` |
@@ -81,6 +89,26 @@ Claude Code asks you to approve project-scoped servers the first time you open t
 | `JEVMEM_AUTOCAPTURE` | auto-store short standing preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
 | `JEVMEM_REPO` | directory to read git context (branch, worktree-shared project name) from, if not the agent's working directory | working directory |
 | `JEVMEM_HOOK_LOG` | append records (time, hashed prompt, needs-memory score, injected ids) to this file for threshold tuning | off |
+
+### Local and third-party models
+Any server exposing `POST /v1/systemone` with Jev's request and response shape (`state`, `questions` of type `noul` or
+`choice`, `answers`, `usage`) can replace hosted Jev. Example with [ollaya](https://ollaya.dev/) (a local runner for decision models; see its site for installing
+it and pulling models):
+```bash
+ollaya pull jevk5:4b && ollaya serve           # listens on http://localhost:11435
+export JEVMEM_BASE_URL=http://localhost:11435 JEVMEM_MODEL=jevk5:4b JEVMEM_TIMEOUT=180
+uv run jevmem eval --data evals/harbor.json     # compare against the hosted-Jev numbers in evaluation.md
+```
+The same variables work for the MCP server, the hooks and every CLI command, and the library:
+`JevDecider(base_url=..., model=...)`. The SDK's own `TYPESAFE_BASE_URL` / `TYPESAFE_DEFAULT_MODEL` also still work.
+
+Caveats, from [the local-model results](evaluation.md#local-decision-models):
+- Every threshold in `Config` was tuned on hosted Jev. A different model calibrates differently (a model can rank notes
+  well and still need other cutoffs), so rerun the evals and adjust before relying on the injection, status and
+  consolidation screens.
+- Recall, consolidation and the lite filter batch up to ~30 questions into one request. A model that cannot take that much
+  context fails those calls; jevmem treats that as "decider unavailable" and falls back to vector search without an error.
+- Keep one model on the GPU at a time. When two compete, the second can fall back to CPU and get much slower.
 
 ### Tools and CLI
 MCP tools: `memory_write` (`pinned=True` for notes that must open every session), `memory_recall`, `memory_list`,

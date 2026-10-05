@@ -1,6 +1,6 @@
 [project]
 name = "jevmem"
-version = "0.2.1"
+version = "0.3.0"
 description = "System-One agent memory (Jev-Mem) for Claude Code and custom agents"
 readme = "README.md"
 license = "MIT"

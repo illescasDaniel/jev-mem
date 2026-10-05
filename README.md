@@ -97,8 +97,9 @@ when to stop) for using the same cheap typed decisions outside memory. See
 
 ## Quickstart
 
-You need Python 3.12+, [uv](https://docs.astral.sh/uv/), Claude Code, and a TypeSafe API key (Jev is currently
-waitlisted).
+You need Python 3.12+, [uv](https://docs.astral.sh/uv/), Claude Code, and a decision model: either a TypeSafe API key
+for hosted Jev (currently waitlisted, what the [results](#results) were measured with) or a
+[local or third-party model](#using-a-local-or-third-party-model), which needs no key.
 
 ```bash
 mkdir -p ~/.jevmem && echo 'TYPESAFE_API_KEY=...' > ~/.jevmem/.env     # read automatically
@@ -119,6 +120,42 @@ session, ask how to deploy. For the full experience:
   to `~/.claude/skills/` so the agent knows when and how to write;
 - add the two hooks for automatic injection ([snippet](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#5-skill-and-hooks));
 - seed it from what you already have: `uvx jevmem import-claude-memory` or `uvx jevmem import-markdown AGENTS.md`.
+
+### Using a local or third-party model
+jevmem only needs a server that speaks Jev's `/v1/systemone` API, so any compatible model works in place of hosted Jev, and
+the `.env` with `TYPESAFE_API_KEY` is **not needed** then. Example with `jevk5:4b`, run locally through [`ollaya`](https://ollaya.dev/)
+(a runner for decision models; install it from there):
+
+```bash
+ollaya pull jevk5:4b      # one-time download, 4.5 GB
+ollaya serve              # leave running; listens on http://localhost:11435
+ollaya ps                 # after the first call: check the model is on cuda, not cpu (about 5.5 GB of VRAM)
+ollaya stop               # when you are done: unloads the models and stops the server
+```
+Then point jevmem at the server and name the model:
+
+```bash
+claude mcp add --scope user jevmem \
+  -e JEVMEM_BASE_URL=http://localhost:11435 -e JEVMEM_MODEL=jevk5:4b \
+  -- uvx --from jevmem jevmem-mcp
+```
+| Env var | Purpose |
+|---|---|
+| `JEVMEM_BASE_URL` | the server's address; setting it switches jevmem off hosted Jev |
+| `JEVMEM_MODEL` | model name to ask for (the server's default if unset) |
+| `JEVMEM_API_KEY` | only if that server wants a key. `TYPESAFE_API_KEY` is never sent to a custom address |
+| `JEVMEM_TIMEOUT` | seconds per call (default 60); raise it for a slow model on CPU |
+
+Put them in `~/.jevmem/.env` instead of `-e` flags if you prefer. Run the model on its own: with a GPU shared with another
+model it can silently fall back to CPU, which is much slower. Things to know before relying on one:
+- **Thresholds are calibrated for hosted Jev.** A model that scores differently needs its own cutoffs
+  ([`Config`](https://github.com/illescasDaniel/jev-mem/blob/main/src/jevmem/config.py)); rerun `jevmem eval` and
+  `jevmem eval-injection` against it before trusting the screens.
+- **Recall makes batched calls** (up to ~30 questions per request). A model with a short context rejects them and recall
+  quietly falls back to plain vector search.
+- Measured so far: `jevk5:4b` on a local GPU is usable for recall but trims much less context than Jev and is a weaker
+  injection and conflict screen; `laya` is not suitable. Numbers in
+  [docs/evaluation.md](https://github.com/illescasDaniel/jev-mem/blob/main/docs/evaluation.md#local-decision-models).
 
 To work on the code, `git clone` this repo and `uv sync`. Full setup, every environment variable, the CLI and the hooks:
 [docs/installation.md](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md).

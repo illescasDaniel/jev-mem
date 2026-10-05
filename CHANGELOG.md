@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 - 2026-10-05
+
+- **Local and third-party decision models.** `JEVMEM_BASE_URL` points jevmem at any server that speaks Jev's
+  `/v1/systemone` API, `JEVMEM_MODEL` picks the model, `JEVMEM_TIMEOUT` sets the per-call timeout and `JEVMEM_API_KEY`
+  is for servers that want a key (also `JevDecider(base_url=, model=, api_key=, timeout=)`). With a base URL no
+  `TYPESAFE_API_KEY` is needed, and the hosted key is never sent to a custom address. Without a key or a base URL the
+  decider now says so (`DeciderUnavailable`) instead of the SDK's generic key error. README and installation docs
+  explain the setup and its caveats; first measurements are in `docs/evaluation.md`.
+
 ## 0.2.1 - 2026-10-03
 
 - Scopes are case-insensitive: `project:SpaceMaker` and `project:spacemaker` are the same scope. They are stored

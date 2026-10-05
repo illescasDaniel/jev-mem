@@ -205,9 +205,66 @@ def test_jev_decider_needs_no_api_key_until_it_is_asked(monkeypatch):
         raise typesafe_sdk.TypeSafeError("No API key was provided.")
     monkeypatch.setattr(dotenv, "load_dotenv", lambda *a, **k: False)      # never pick up the repo's real .env
     monkeypatch.setattr(typesafe_sdk, "TypeSafeClient", no_key)             # and never reach the network
+    for var in ("TYPESAFE_API_KEY", "JEVMEM_BASE_URL"):
+        monkeypatch.delenv(var, raising=False)
     d = JevDecider()                                    # constructing must not raise: stats/list/forget never ask
-    with pytest.raises(DeciderUnavailable, match="API key"):
+    with pytest.raises(DeciderUnavailable, match="TYPESAFE_API_KEY.*JEVMEM_BASE_URL"):
         d.ask({"observation": {"content": "x"}}, typing_questions())
+
+
+def _recording_sdk(monkeypatch):
+    """Replace the SDK client with one that records how it was built and asked, and answers one noul."""
+    import dotenv
+    import typesafe_sdk
+    seen: dict = {}
+
+    class Client:
+        def __init__(self, **kw):
+            seen["client"] = kw
+
+        def system_one(self, **kw):
+            seen["ask"] = kw
+            usage = type("U", (), {"input_tokens": 1, "output_tokens": 0})()
+            ans = {k: type("A", (), {"type": "noul", "noul": 0.5})() for k in kw["questions"]}
+            return type("R", (), {"usage": usage, "answers": ans})()
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *a, **k: False)
+    monkeypatch.setattr(typesafe_sdk, "TypeSafeClient", Client)
+    for var in ("TYPESAFE_API_KEY", "JEVMEM_BASE_URL", "JEVMEM_API_KEY", "JEVMEM_MODEL", "JEVMEM_TIMEOUT"):
+        monkeypatch.delenv(var, raising=False)
+    return seen
+
+
+def test_jev_decider_uses_a_local_endpoint_without_a_jev_key(monkeypatch):
+    from jevmem.decider import JevDecider, NoulQ
+    seen = _recording_sdk(monkeypatch)
+    monkeypatch.setenv("JEVMEM_BASE_URL", "http://localhost:11435")
+    monkeypatch.setenv("JEVMEM_MODEL", "jevk5:4b")
+    monkeypatch.setenv("JEVMEM_TIMEOUT", "180")
+    out = JevDecider().ask({"o": "x"}, {"q": NoulQ("Is it?")})
+    assert out["q"].p == 0.5
+    assert seen["client"] == {"api_key": "unused", "base_url": "http://localhost:11435"}
+    assert seen["ask"]["model"] == "jevk5:4b" and seen["ask"]["timeout"] == 180.0
+
+
+def test_a_custom_endpoint_never_receives_the_hosted_jev_key(monkeypatch):
+    from jevmem.decider import JevDecider, NoulQ
+    seen = _recording_sdk(monkeypatch)
+    monkeypatch.setenv("TYPESAFE_API_KEY", "hosted-secret")
+    monkeypatch.setenv("JEVMEM_BASE_URL", "http://example.test:9000")
+    JevDecider().ask({"o": "x"}, {"q": NoulQ("Is it?")})
+    assert seen["client"]["api_key"] == "unused"
+    monkeypatch.setenv("JEVMEM_API_KEY", "server-token")                  # a server that does want a key
+    JevDecider().ask({"o": "x"}, {"q": NoulQ("Is it?")})
+    assert seen["client"]["api_key"] == "server-token"
+
+
+def test_hosted_jev_is_unchanged_without_the_new_settings(monkeypatch):
+    from jevmem.decider import JevDecider, NoulQ
+    seen = _recording_sdk(monkeypatch)
+    monkeypatch.setenv("TYPESAFE_API_KEY", "hosted-secret")
+    JevDecider().ask({"o": "x"}, {"q": NoulQ("Is it?")})
+    assert seen["client"] == {"api_key": "hosted-secret", "base_url": None}
+    assert seen["ask"]["model"] is None and seen["ask"]["timeout"] == 60.0
 
 
 def test_a_long_lived_index_sees_notes_written_and_deleted_by_another_process(tmp_path):
