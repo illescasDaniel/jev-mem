@@ -3,6 +3,7 @@
 **Long-term memory for AI agents that costs fractions of a cent, never calls an LLM, and cleans up after itself.**
 
 [![CI](https://github.com/illescasDaniel/jev-mem/actions/workflows/ci.yml/badge.svg)](https://github.com/illescasDaniel/jev-mem/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/jevmem.svg)](https://pypi.org/project/jevmem/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/illescasDaniel/jev-mem/blob/main/LICENSE)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Status: beta](https://img.shields.io/badge/status-beta-orange)
@@ -17,7 +18,7 @@ jevmem takes the approach of the [**Jev-Mem paper**](https://arxiv.org/abs/2609.
 - **System Two** (slow, smart): your agent (Claude) writes the notes, synthesises patterns and answers.
 
 jevmem is the memory layer built on that idea: an MCP server, Claude Code hooks and skill, a CLI and a Python library on
-top of one SQLite file.
+top of one SQLite file. Install it from PyPI: [pypi.org/project/jevmem](https://pypi.org/project/jevmem/).
 
 ![architecture](https://raw.githubusercontent.com/illescasDaniel/jev-mem/main/docs/img/architecture.svg)
 
