@@ -1,6 +1,6 @@
 [project]
 name = "jevmem"
-version = "0.3.1"
+version = "0.4.0"
 description = "System-One agent memory (Jev-Mem) for Claude Code, Cursor and custom agents"
 readme = "README.md"
 license = "MIT"
@@ -21,7 +21,6 @@ dependencies = [
     "fastembed>=0.8.1",
     "mcp>=2",
     "numpy>=2.5.3",
-    "python-dotenv>=1.2.4",
     "sqlite-vec>=0.1.9",
     "typesafe-sdk>=0.7.2",
 ]
@@ -55,7 +54,7 @@ dev = [
 ]
 
 # Run with `uv run task <name>` (list them with `uv run task --list`). Extra arguments are appended to the command.
-# Tasks marked "live" call Jev and need TYPESAFE_API_KEY (in .env); they cost a few cents at most.
+# Tasks marked "live" call Jev and need TYPESAFE_API_KEY (in ~/.jevmem/config.jsonc or the environment); they cost a few cents at most.
 [tool.taskipy.tasks]
 test = { cmd = "pytest -q", help = "unit tests (no Jev, no network)" }
 test-all = { cmd = "pytest -q -rs", help = "unit tests, listing skipped tests (e.g. optional backends)" }

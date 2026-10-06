@@ -88,8 +88,9 @@ second held-out set of reworded renames, with no false flags
 
 ![scopes](img/scopes.svg)
 
-Scopes partition memory: `global`, `project:<name>`, `agent:<name>`. Every search is scope-filtered. Hooks default to
-`project:<repository name>`, shared by all git worktrees of a repository. Notes are tagged with the branch and commit
+Scopes partition memory: `global`, `project:<name>`, `agent:<name>`. Every search is scope-filtered, and always includes `global`. The MCP server and the hooks default to
+`project:<repository name>`, shared by all git worktrees of a repository; an agent writes `scope="global"` for
+preferences that apply in every project, and recall takes `scope="all"` to search every project. Notes are tagged with the branch and commit
 they were written on; notes from a branch that is neither current, default nor merged rank x0.8 lower and the prompt
 hook skips them. `jevmem forget --branch <name>` removes the notes of a dead branch.
 
@@ -130,6 +131,7 @@ src/jevmem/
   decide.py      Judge: route/filter/stop/check/screen for agent apps
   gitctx.py      branch, commit and worktree-shared project name
   service.py     shared wiring (db path, env)
+  user_config.py ~/.jevmem/config.jsonc: key, db, model (environment wins)
   mcp_server.py  MCP tools
   cli.py         jevmem command
   hooks.py       SessionStart / UserPromptSubmit logic

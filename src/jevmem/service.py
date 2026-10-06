@@ -5,9 +5,8 @@ import os
 from dataclasses import replace
 from pathlib import Path
 
-from dotenv import load_dotenv
 
-from . import gitctx
+from . import gitctx, user_config
 from .config import Config
 from .consolidate import ConsolidationReport, Consolidator
 from .decider import JevDecider
@@ -23,7 +22,7 @@ def db_path() -> str:
             f"JEVMEM_DB={raw!r} contains an unexpanded variable: the launcher did not substitute it "
             "(on Windows, ${HOME} is usually unset; use ${USERPROFILE} or an absolute path)"
         )
-    p = Path(raw or Path.home() / ".jevmem" / "memory.db")
+    p = Path(raw).expanduser() if raw else Path.home() / ".jevmem" / "memory.db"
     p.parent.mkdir(parents=True, exist_ok=True)
     return str(p)
 
@@ -31,8 +30,7 @@ def db_path() -> str:
 class Service:
     def __init__(self, path: str | None = None, decider=None, config: Config | None = None,
                  switch_embedder: bool = False, cwd: str | None = None):
-        load_dotenv(os.environ.get("JEVMEM_ENV_FILE") or Path.home() / ".jevmem" / ".env")
-        load_dotenv()
+        user_config.apply()
         self.cfg = config or Config()
         if os.environ.get("JEVMEM_RECALL_MODE"):
             self.cfg = replace(self.cfg, recall_mode=os.environ["JEVMEM_RECALL_MODE"])

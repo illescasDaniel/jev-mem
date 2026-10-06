@@ -103,27 +103,25 @@ or [Cursor](https://cursor.com/docs/mcp)), and a decision model: either a TypeSa
 waitlisted, what the [results](#results) were measured with) or a
 [local or third-party model](#using-a-local-or-third-party-model), which needs no key.
 
-Put the key in `~/.jevmem/.env` (created once; read automatically by the CLI, MCP server and hooks):
+Create your settings file once; it holds the key (and, if you want, the database path) for every project and editor, and
+the CLI, MCP server and hooks read it automatically. It lives in `~/.jevmem/config.jsonc` (Windows:
+`%USERPROFILE%\.jevmem\config.jsonc`), outside every repository:
 
 ```bash
-# macOS / Linux
-mkdir -p ~/.jevmem && echo 'TYPESAFE_API_KEY=...' > ~/.jevmem/.env
-
-# Windows (PowerShell)
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.jevmem" | Out-Null
-Set-Content "$env:USERPROFILE\.jevmem\.env" "TYPESAFE_API_KEY=..."
+uvx jevmem config init --api-key "..."     # omit --api-key to be prompted (hidden), or to skip it for a local model
 ```
 
 ### Claude Code
 ```bash
 claude mcp add --scope user jevmem -- uvx --from jevmem jevmem-mcp
 ```
-No clone needed: `uvx` fetches [jevmem from PyPI](https://pypi.org/project/jevmem/). Notes go to the `global` scope
-unless you add `-e JEVMEM_SCOPE=project:my-project`.
+No clone needed: `uvx` fetches [jevmem from PyPI](https://pypi.org/project/jevmem/). Notes go to a per-project scope
+(`project:<repository name>`, found from the folder the agent works in) unless the agent says `global` (for personal
+preferences that apply everywhere) or you set `-e JEVMEM_SCOPE=...`. Recall searches the project plus `global`.
 
 ### Cursor
 Add a user-wide server in `%USERPROFILE%\.cursor\mcp.json` (Windows) or `~/.cursor/mcp.json` (macOS/Linux), or a
-project file at `.cursor/mcp.json`. Cursor loads secrets via `envFile` (no bash required):
+project file at `.cursor/mcp.json`.:
 
 ```json
 {
@@ -131,9 +129,7 @@ project file at `.cursor/mcp.json`. Cursor loads secrets via `envFile` (no bash 
     "jevmem": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "jevmem", "jevmem-mcp"],
-      "env": { "JEVMEM_SCOPE": "project:my-project" },
-      "envFile": "${userHome}/.jevmem/.env"
+      "args": ["--from", "jevmem", "jevmem-mcp"]
     }
   }
 }
@@ -154,12 +150,12 @@ session, ask how to deploy. For the full experience:
 - add the two Claude Code hooks for automatic injection ([snippet](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#5-skill-and-hooks));
 - seed it from what you already have: `uvx jevmem import-claude-memory` or `uvx jevmem import-markdown AGENTS.md`.
 
-Windows notes (paths, PowerShell, Cursor `envFile`, no-bash MCP launch): see
+Windows notes (paths, PowerShell, Cursor, no-bash MCP launch): see
 [installation § Windows and Cursor](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#windows-and-cursor).
 
 ### Using a local or third-party model
 jevmem only needs a server that speaks Jev's `/v1/systemone` API, so any compatible model works in place of hosted Jev, and
-the `.env` with `TYPESAFE_API_KEY` is **not needed** then. Example with `jevk5:4b`, run locally through [`ollaya`](https://ollaya.dev/)
+the `api_key` in your settings file is **not needed** then. Example with `jevk5:4b`, run locally through [`ollaya`](https://ollaya.dev/)
 (a runner for decision models; install it from there):
 
 ```bash
@@ -182,7 +178,7 @@ claude mcp add --scope user jevmem \
 | `JEVMEM_API_KEY` | only if that server wants a key. `TYPESAFE_API_KEY` is never sent to a custom address |
 | `JEVMEM_TIMEOUT` | seconds per call (default 60); raise it for a slow model on CPU |
 
-Put them in `~/.jevmem/.env` instead of `-e` flags if you prefer. Run the model on its own: with a GPU shared with another
+Put them in `~/.jevmem/config.jsonc` (`base_url`, `model`, `api_key`, `timeout`) instead of `-e` flags if you prefer. Run the model on its own: with a GPU shared with another
 model it can silently fall back to CPU, which is much slower. Things to know before relying on one:
 - **Thresholds are calibrated for hosted Jev.** A model that scores differently needs its own cutoffs
   ([`Config`](https://github.com/illescasDaniel/jev-mem/blob/main/src/jevmem/config.py)); rerun `jevmem eval` and
@@ -241,7 +237,7 @@ indications, not benchmarks; methodology, datasets and caveats are in [docs/eval
 
 ## Status
 
-Beta (v0.3.1). Core library, MCP server and CLI, Claude Code / Cursor configs, skill and hooks, consolidation, an
+Beta (v0.4.0). Core library, MCP server and CLI, Claude Code / Cursor configs, skill and hooks, consolidation, an
 evaluation harness and pluggable vector indexes are in and tested (`uv run pytest`; CI runs Linux, macOS and Windows on
 Python 3.12 and 3.13). Expect rough edges: the
 tuning data is small and mostly from one project, and Jev itself is a waitlisted hosted service. Issues and

@@ -40,7 +40,8 @@ speculation, secrets.
   Pronouns and "it/this" do not link to anything.
 - **State the reason in the same entry** as the decision/fix so a causal link can form.
 - Positive, literal wording. Negations are read at face value, so say "use uv; do not use pip" rather than "avoid the usual tool".
-- Pick scope: `project:<name>` for project facts, `global` for personal preferences.
+- Pick scope: omit it for project facts (the default is this project) and pass `scope="global"` for personal preferences and
+  conventions that apply in every project ("we prefer tabs"). Recall searches this project plus `global`; `scope="all"` searches every project.
 - `pinned=True` only when the user says a note must always be remembered: pinned notes open every session.
   `memory_pin(node_id, pinned=False)` unpins. Rules already in `CLAUDE.md`/`AGENTS.md` need no pin (and are not
   re-injected at session start).

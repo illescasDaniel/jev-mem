@@ -196,15 +196,13 @@ def test_hook_log_is_opt_in_and_never_stores_the_prompt(tmp_path, monkeypatch):
 
 
 def test_jev_decider_needs_no_api_key_until_it_is_asked(monkeypatch):
-    import dotenv
     import typesafe_sdk
     from jevmem.decider import DeciderUnavailable, JevDecider
     from jevmem.questions import typing_questions
 
     def no_key(*a, **k):
         raise typesafe_sdk.TypeSafeError("No API key was provided.")
-    monkeypatch.setattr(dotenv, "load_dotenv", lambda *a, **k: False)      # never pick up the repo's real .env
-    monkeypatch.setattr(typesafe_sdk, "TypeSafeClient", no_key)             # and never reach the network
+    monkeypatch.setattr(typesafe_sdk, "TypeSafeClient", no_key)             # never reach the network
     for var in ("TYPESAFE_API_KEY", "JEVMEM_BASE_URL"):
         monkeypatch.delenv(var, raising=False)
     d = JevDecider()                                    # constructing must not raise: stats/list/forget never ask
@@ -214,7 +212,6 @@ def test_jev_decider_needs_no_api_key_until_it_is_asked(monkeypatch):
 
 def _recording_sdk(monkeypatch):
     """Replace the SDK client with one that records how it was built and asked, and answers one noul."""
-    import dotenv
     import typesafe_sdk
     seen: dict = {}
 
@@ -227,7 +224,6 @@ def _recording_sdk(monkeypatch):
             usage = type("U", (), {"input_tokens": 1, "output_tokens": 0})()
             ans = {k: type("A", (), {"type": "noul", "noul": 0.5})() for k in kw["questions"]}
             return type("R", (), {"usage": usage, "answers": ans})()
-    monkeypatch.setattr(dotenv, "load_dotenv", lambda *a, **k: False)
     monkeypatch.setattr(typesafe_sdk, "TypeSafeClient", Client)
     for var in ("TYPESAFE_API_KEY", "JEVMEM_BASE_URL", "JEVMEM_API_KEY", "JEVMEM_MODEL", "JEVMEM_TIMEOUT"):
         monkeypatch.delenv(var, raising=False)

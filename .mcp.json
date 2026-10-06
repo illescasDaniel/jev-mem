@@ -18,10 +18,7 @@
         "--project",
         ".",
         "jevmem-mcp"
-      ],
-      "env": {
-        "JEVMEM_SCOPE": "project:jev-mem"
-      }
+      ]
     }
   }
 }

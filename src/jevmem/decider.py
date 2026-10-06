@@ -46,9 +46,9 @@ class JevDecider:
 
     def __init__(self, model: str | None = None, timeout: float | None = None, base_url: str | None = None,
                  api_key: str | None = None):
-        from dotenv import load_dotenv
+        from . import user_config
 
-        load_dotenv()
+        user_config.apply()
         self._client = None             # created on first use, so commands that never ask Jev need no API key
         self._model, self._base_url, self._api_key, self._timeout = model, base_url, api_key, timeout
         self.calls = 0
@@ -62,7 +62,7 @@ class JevDecider:
         base_url = self._base_url or os.environ.get("JEVMEM_BASE_URL") or None
         if base_url:
             # The SDK insists on a key. A custom endpoint gets JEVMEM_API_KEY or a placeholder, never the hosted
-            # TYPESAFE_API_KEY, so a Jev key in .env is not sent to another server.
+            # TYPESAFE_API_KEY, so a Jev key in the settings file is not sent to another server.
             key = self._api_key or os.environ.get("JEVMEM_API_KEY") or "unused"
         else:
             key = self._api_key or os.environ.get("TYPESAFE_API_KEY")

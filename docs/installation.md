@@ -9,12 +9,10 @@ Everything you need to run jevmem with Claude Code, Cursor, or your own agents. 
 - Node 22+ (only for the optional [jev-mcp](https://github.com/jkudish/jev-mcp) guardrail tools)
 - An MCP host: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and/or [Cursor](https://cursor.com/docs/mcp)
 - A decision model, either:
-  - a TypeSafe API key for hosted Jev (waitlisted). Put it in `~/.jevmem/.env` (recommended; all projects) or `./.env`:
-    ```
-    TYPESAFE_API_KEY=...
-    ```
-    See [`.env.example`](../.env.example). jevmem looks for the key in the environment, then in the file named by
-    `JEVMEM_ENV_FILE`, `~/.jevmem/.env` and `./.env`. On Windows the home path is `%USERPROFILE%\.jevmem\.env`; or
+  - a TypeSafe API key for hosted Jev (waitlisted). Put it in your settings file, once for all projects:
+    `uvx jevmem config init --api-key "..."` (see [Settings file](#settings-file-jevmemconfigjsonc)). jevmem looks for the
+    key in the environment (`TYPESAFE_API_KEY`), then in that file; there is no `.env` support. On Windows the file is
+    `%USERPROFILE%\.jevmem\config.jsonc`; or
   - a local or third-party server that speaks Jev's `/v1/systemone` API, which needs **no Jev key**:
     set `JEVMEM_BASE_URL` (and `JEVMEM_MODEL`), see [Local and third-party models](#local-and-third-party-models).
 
@@ -60,25 +58,22 @@ Two notes on Python builds:
 ```bash
 claude mcp add jev -e TYPESAFE_API_KEY="$TYPESAFE_API_KEY" -- npx -y @jkudish/jev-mcp
 ```
-This repo ships project-scoped configs that load the key without storing it in JSON:
-- Claude Code: [`.mcp.json`](../.mcp.json) runs `scripts/launch_jev_mcp.py` (loads `~/.jevmem/.env`, works on Windows
-  without bash).
-- Cursor: [`.cursor/mcp.json`](../.cursor/mcp.json) uses `envFile: "${userHome}/.jevmem/.env"`.
+This repo ships project-scoped configs that load the key without storing it in JSON: both [`.mcp.json`](../.mcp.json) and
+[`.cursor/mcp.json`](../.cursor/mcp.json) run `scripts/launch_jev_mcp.py`, which reads the `api_key` from your settings file
+(works on Windows without bash).
 
 ## 4. Add the jevmem memory server
 
 ### Claude Code
 Project scope (already in this repo's `.mcp.json`):
 ```bash
-claude mcp add --scope project jevmem \
-  -e JEVMEM_SCOPE=project:jev-mem \
-  -- uv run --project $PWD jevmem-mcp
+claude mcp add --scope project jevmem -- uv run --project $PWD jevmem-mcp
 ```
 `--project` (not `--directory`) keeps the agent's working directory, which jevmem uses to record each note's git
 branch and to share one scope across a repository's worktrees; set `JEVMEM_REPO` to override it.
-For every project, use `--scope user` and give a per-project `JEVMEM_SCOPE`, or let the agent pass `scope`.
+For every project, use `--scope user`: the scope follows the project the agent works in, so one entry serves them all.
 Claude Code asks you to approve project-scoped servers the first time you open the folder.
-The API key comes from `~/.jevmem/.env` by default (no `JEVMEM_ENV_FILE` needed).
+The API key and database path come from `~/.jevmem/config.jsonc`, and the scope defaults to the project, so no `env` block is needed at all.
 
 ### Cursor
 Project scope is already in [`.cursor/mcp.json`](../.cursor/mcp.json). For every other project, put this in that
@@ -90,9 +85,7 @@ project's `.cursor/mcp.json` or in the user file `~/.cursor/mcp.json` / `%USERPR
     "jevmem": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "jevmem", "jevmem-mcp"],
-      "env": { "JEVMEM_SCOPE": "project:my-project" },
-      "envFile": "${userHome}/.jevmem/.env"
+      "args": ["--from", "jevmem", "jevmem-mcp"]
     }
   }
 }
@@ -104,21 +97,19 @@ in Cursor (Customize → MCP) and confirm the `memory_*` tools are listed.
 ### Windows and Cursor
 | | |
 |---|---|
-| Env file | `%USERPROFILE%\.jevmem\.env` (same role as `~/.jevmem/.env`) |
+| Settings file | `%USERPROFILE%\.jevmem\config.jsonc` (same role as `~/.jevmem/config.jsonc`): key, DB path, model |
 | SQLite DB | `%USERPROFILE%\.jevmem\memory.db` unless `JEVMEM_DB` is set |
 | Paths in MCP config | use `${USERPROFILE}/.jevmem/x.db`, not `${HOME}` (usually unset on Windows, so it stays literal; jevmem now errors on that) |
 | Cursor MCP | `.cursor/mcp.json` (project) or `%USERPROFILE%\.cursor\mcp.json` (user-wide) |
-| Cursor secrets | prefer `envFile` — do not shell-source `.env` with bash |
+| Cursor secrets | in the settings file, not in `mcp.json`; Cursor's `${userHome}` expands to a `/c:/...` path on Windows, so do not use it for paths |
 | Claude Code MCP | `.mcp.json` uses `uv` + `scripts/launch_jev_mcp.py` so Windows needs no Git Bash |
 | Skill | `.cursor/skills/jev-memory/` in this repo; copy elsewhere if you want it in other projects |
 | Hooks | Claude Code only (`.claude/settings.json`). Cursor has no SessionStart/UserPromptSubmit hooks; rely on the skill + MCP tools, or call `uvx jevmem hook …` yourself |
 
-Create the env file on Windows:
+Create the settings file on Windows (PowerShell):
 
 ```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.jevmem" | Out-Null
-Copy-Item .env.example "$env:USERPROFILE\.jevmem\.env"   # from a clone; or write TYPESAFE_API_KEY=... by hand
-# then edit the file and replace replace-me with your key
+uvx jevmem config init --api-key "..."     # prompts (hidden) if you leave --api-key out
 ```
 
 Sanity-check without calling Jev:
@@ -131,11 +122,35 @@ uv run jevmem stats
 `stats` / `list` / `forget` work with a placeholder key; write and recall need a real `TYPESAFE_API_KEY` or
 `JEVMEM_BASE_URL`.
 
+### Settings file (`~/.jevmem/config.jsonc`)
+
+The easiest setup: put the database path and the decision model or key in one file that every editor and project
+shares, so the MCP and hook configs need no `env` block (and no `${HOME}`/`${USERPROFILE}` juggling).
+
+```bash
+uvx jevmem config init --api-key "..."   # writes ~/.jevmem/config.jsonc; leave --api-key out to be prompted (hidden) or skip it
+# also: --db <path>, --force to overwrite; `jevmem config path` / `config show` (keys hidden) inspect it
+```
+
+```jsonc
+{
+    "db": "~/.jevmem/spacemaker.db",     // "~" works on every OS
+    "api_key": "...",                    // the file is outside every repo, so the key lives here (chmod 600 on Linux/macOS)
+    // "base_url": "http://localhost:11435", "model": "jevk5:4b", "timeout": 60
+}
+```
+
+Keys: `db`, `api_key`, `base_url`, `model`, `timeout`, `embedder`, `index`, `recall_mode`. Each fills the
+matching `JEVMEM_*` variable only when that variable is not already set, so a real environment variable
+always wins (`api_key` goes to `JEVMEM_API_KEY` when a `base_url` is set, else to `TYPESAFE_API_KEY`). Comments and
+trailing commas are allowed. The scope is not a key: it differs per project, so it defaults to the repository's name
+(set `JEVMEM_SCOPE` in the MCP/hook config to override). `JEVMEM_CONFIG` points at a different file.
+
 ### Environment variables
 
 | Env var | Purpose | Default |
 |---|---|---|
-| `TYPESAFE_API_KEY` | hosted Jev key (via `JEVMEM_ENV_FILE`, `~/.jevmem/.env` / `%USERPROFILE%\.jevmem\.env`, or `.env`) | required unless `JEVMEM_BASE_URL` is set |
+| `TYPESAFE_API_KEY` | hosted Jev key (or `api_key` in the settings file) | required unless `JEVMEM_BASE_URL` is set |
 | `JEVMEM_BASE_URL` | address of a local or third-party Jev-schema server; no Jev key needed | hosted Jev |
 | `JEVMEM_MODEL` | model name sent with every call | the server's default |
 | `JEVMEM_API_KEY` | key for that server, if it wants one (`TYPESAFE_API_KEY` is never sent to it) | none (a placeholder) |
@@ -144,7 +159,7 @@ uv run jevmem stats
 | `JEVMEM_INDEX` | vector index: `auto`, `matrix`, `sqlite-vec`, `qdrant[:path-or-url]`, `lancedb[:path]`, `pgvector:<dsn>` (tuning env vars in [evaluation.md](evaluation.md)) | `auto` |
 | `JEVMEM_EMBEDDER` | `fastembed` (local ONNX model) or `hash` (dependency-free, weak) | `fastembed` |
 | `JEVMEM_RECALL_MODE` | `auto` (lite first; escalate to full when it finds nothing or the question looks multi-hop/temporal), `full` (route, graph expansion, stop rule) or `lite` (vector top-20 + one Jev relevance filter) | `auto` (prompt hook: `lite` + same-subject filter) |
-| `JEVMEM_SCOPE` | default scope for write/recall | `global` (hooks: `project:<repository name>`, shared by all worktrees) |
+| `JEVMEM_SCOPE` | default scope for write/recall (MCP server and hooks; the CLI defaults to `global` for writes) | `project:<repository name>`, shared by all worktrees; `JEVMEM_REPO` names the folder to look at |
 | `JEVMEM_AUTOCAPTURE` | auto-store short standing preferences/decisions/conventions from prompts; set `0` to turn off | `1` (on) |
 | `JEVMEM_REPO` | directory to read git context (branch, worktree-shared project name) from, if not the agent's working directory | working directory |
 | `JEVMEM_HOOK_LOG` | append records (time, hashed prompt, needs-memory score, injected ids) to this file for threshold tuning | off |
@@ -175,7 +190,8 @@ MCP tools: `memory_write` (`pinned=True` for notes that must open every session)
 `memory_pending_synthesis`, `memory_resolve`, `memory_dismiss`.
 
 CLI: `uv run jevmem {write,recall [--mode auto|full|lite],list,forget [--branch NAME],pin [--off],stats,flush,consolidate [--all],pending,resolve,dismiss,reindex,reembed,import-markdown,import-claude-memory,eval,eval-injection}`.
-The CLI uses `JEVMEM_SCOPE` as its default scope, like the MCP server and hooks.
+The CLI uses `JEVMEM_SCOPE` as its default scope (else `global` for writes and every scope for recall/list); the MCP server and
+hooks fall back to `project:<repository name>`. `jevmem config init|path|show` manages the settings file.
 
 ### Writing good notes
 Write memories as one literal fact with explicit entities and **absolute dates** ("on 2024-05-15", not "yesterday"):
@@ -203,7 +219,7 @@ This repo ships both for itself:
   ```
   This repo's hooks use exec form (`command` plus `args`, with `${CLAUDE_PROJECT_DIR}`): Claude Code substitutes the path
   itself and spawns `uv` without a shell, so the same config works under bash and PowerShell regardless of the working
-  directory. The key still loads from `~/.jevmem/.env`.
+  directory. The key still loads from `~/.jevmem/config.jsonc`.
 - Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`, or from rule files such as
   `AGENTS.md`/`CLAUDE.md` with `uv run jevmem import-markdown AGENTS.md --scope project:<name>` (one note per bullet
   or paragraph; for long decision logs it is better to have your agent write atomic, dated notes).

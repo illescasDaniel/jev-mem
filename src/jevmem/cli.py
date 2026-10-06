@@ -4,9 +4,11 @@ import argparse
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
 from .service import Service
+from .user_config import ConfigError
 from .extras import MissingExtra
 from .store import EmbedderMismatch, EmbedderUnavailable
 
@@ -75,6 +77,10 @@ def main(argv: list[str] | None = None) -> None:
     e = sub.add_parser("eval"); e.add_argument("--data", default="evals/orbit.json"); e.add_argument("-k", type=int, default=5); e.add_argument("--json"); e.add_argument("--embedder", help="hash | fastembed[:model]")
     ei = sub.add_parser("eval-injection"); ei.add_argument("--data", default="evals/injection.json")
     es = sub.add_parser("eval-status"); es.add_argument("--data", default="evals/status.json")
+    cf = sub.add_parser("config", help="your per-user settings file (~/.jevmem/config.jsonc)")
+    cf.add_argument("action", choices=["init", "path", "show"]); cf.add_argument("--force", action="store_true")
+    cf.add_argument("--api-key", help="init: your TypeSafe key for hosted Jev (prompted for on a terminal if omitted)")
+    cf.add_argument("--db", help="init: where the notes live (default ~/.jevmem/memory.db)")
     h = sub.add_parser("hook"); h.add_argument("event", choices=["session-start", "user-prompt"])
     f = sub.add_parser("forget"); f.add_argument("node_id", type=int, nargs="?"); f.add_argument("--branch", help="forget every note written on this git branch (e.g. an abandoned one)")
     pn = sub.add_parser("pin"); pn.add_argument("node_id", type=int); pn.add_argument("--off", action="store_true")
@@ -94,6 +100,29 @@ def main(argv: list[str] | None = None) -> None:
     if a.cmd == "eval-status":
         from .evalharness import run_status
         return run_status(a.data)
+    if a.cmd == "config":
+        from . import user_config
+        try:
+            if a.action == "init":
+                key = a.api_key
+                if key is None and sys.stdin.isatty():
+                    import getpass
+                    key = getpass.getpass("TypeSafe API key for hosted Jev (hidden; Enter to skip, e.g. for a local model): ")
+                path = user_config.init(a.force, api_key=key or None, db=a.db)
+                print(f"wrote {path}")
+                if not key:
+                    print("no api_key set: add \"api_key\" (hosted Jev) or \"base_url\" (local model) before the first write")
+                return
+            path = user_config.config_path()
+            if a.action == "path":
+                return print(f"{path}{'' if path.is_file() else ' (does not exist: run `jevmem config init`)'}")
+            if not path.is_file():
+                return print(f"no settings file at {path}")
+            for k, v in user_config.read(path, os.environ).items():
+                print(f"{k}={'***' if k.endswith('API_KEY') else v}")
+        except user_config.ConfigError as e:
+            raise SystemExit(f"jevmem: {e}")
+        return
     if a.cmd == "hook":
         from .hooks import run
         return run(a.event)
@@ -107,7 +136,7 @@ def main(argv: list[str] | None = None) -> None:
         return print(f"embedder ready: {getattr(emb, 'spec', 'hash')}")
     try:
         svc = Service(switch_embedder=a.cmd == "reembed")
-    except (EmbedderMismatch, EmbedderUnavailable, MissingExtra) as e:
+    except (EmbedderMismatch, EmbedderUnavailable, MissingExtra, ConfigError) as e:
         raise SystemExit(f"jevmem: {e}")
     if a.cmd == "write":
         res, _ = svc.write(a.content, a.scope, a.entity, a.timestamp)

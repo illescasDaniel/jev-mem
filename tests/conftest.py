@@ -7,5 +7,6 @@ def _clean_env(monkeypatch, tmp_path):
     import os
     for k in [k for k in os.environ if k.startswith("JEVMEM_") and k != "JEVMEM_TEST_PG_DSN"]:
         monkeypatch.delenv(k)
+    monkeypatch.setenv("JEVMEM_CONFIG", str(tmp_path / "no-config.jsonc"))   # never the developer's real settings file
     monkeypatch.setenv("HOME", str(tmp_path / "home"))       # no ~/.claude/CLAUDE.md of the developer
     monkeypatch.setenv("JEVMEM_EMBEDDER", "hash")            # the real default (fastembed) needs a model download

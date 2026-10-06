@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 - 2026-10-06
+
+- **The MCP server defaults to a per-project scope.** With no `scope` argument and no `JEVMEM_SCOPE`, writes go to
+  `project:<repository name>` (shared by all worktrees; the same default the hooks always used) instead of `global`, and
+  recall searches that project plus `global` (`scope="all"` searches everything). Pass `scope="global"` for notes that apply
+  everywhere. So an MCP entry needs no `env` block at all. The CLI's write default is unchanged (`global`).
+
+- **Per-user settings file.** `~/.jevmem/config.jsonc` (JSON with comments and trailing commas; `jevmem config init|path|show`) sets
+  `db`, `api_key`, `base_url`, `model`, `timeout`, `embedder`, `index` and `recall_mode` once for every
+  project and editor; real environment variables still win. `jevmem config init --api-key ...` creates it (prompts for the key on a
+  terminal). `JEVMEM_DB` now expands a leading `~`. A malformed
+  file is a clear error, not a traceback.
+- **Breaking: `.env` files are no longer read** (`~/.jevmem/.env`, `./.env`, `JEVMEM_ENV_FILE`), and `python-dotenv` is no
+  longer a dependency. Move `TYPESAFE_API_KEY` into `~/.jevmem/config.jsonc` as `"api_key"` (`jevmem config init --api-key`),
+  or keep it in the real environment. `.env.example` is gone; the repo's `.cursor/mcp.json` no longer uses `envFile`.
+
 ## 0.3.1 - 2026-10-06
 
 - **Unexpanded `JEVMEM_DB` is an error.** A value containing `${` (e.g. `${HOME}/.jevmem/x.db` left literal because
