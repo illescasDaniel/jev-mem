@@ -106,6 +106,7 @@ in Cursor (Customize → MCP) and confirm the `memory_*` tools are listed.
 |---|---|
 | Env file | `%USERPROFILE%\.jevmem\.env` (same role as `~/.jevmem/.env`) |
 | SQLite DB | `%USERPROFILE%\.jevmem\memory.db` unless `JEVMEM_DB` is set |
+| Paths in MCP config | use `${USERPROFILE}/.jevmem/x.db`, not `${HOME}` (usually unset on Windows, so it stays literal; jevmem now errors on that) |
 | Cursor MCP | `.cursor/mcp.json` (project) or `%USERPROFILE%\.cursor\mcp.json` (user-wide) |
 | Cursor secrets | prefer `envFile` — do not shell-source `.env` with bash |
 | Claude Code MCP | `.mcp.json` uses `uv` + `scripts/launch_jev_mcp.py` so Windows needs no Git Bash |

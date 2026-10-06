@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 - 2026-10-06
 
+- **Unexpanded `JEVMEM_DB` is an error.** A value containing `${` (e.g. `${HOME}/.jevmem/x.db` left literal because
+  `HOME` is unset on Windows) now fails with a clear message instead of silently creating a `${HOME}` directory in the
+  working directory. The Windows docs say to use `${USERPROFILE}`.
 - **Windows and Cursor support.** Cross-platform `.mcp.json` (no bash; `scripts/launch_jev_mcp.py` loads
   `~/.jevmem/.env`), Cursor project config at `.cursor/mcp.json` with `envFile`, Cursor skill at
   `.cursor/skills/jev-memory/`, `.env.example`, and Windows/Cursor setup in the README and installation guide.

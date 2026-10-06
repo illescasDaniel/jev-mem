@@ -17,7 +17,13 @@ from .write import Writer
 
 
 def db_path() -> str:
-    p = Path(os.environ.get("JEVMEM_DB", Path.home() / ".jevmem" / "memory.db"))
+    raw = os.environ.get("JEVMEM_DB")
+    if raw and "${" in raw:
+        raise ValueError(
+            f"JEVMEM_DB={raw!r} contains an unexpanded variable: the launcher did not substitute it "
+            "(on Windows, ${HOME} is usually unset; use ${USERPROFILE} or an absolute path)"
+        )
+    p = Path(raw or Path.home() / ".jevmem" / "memory.db")
     p.parent.mkdir(parents=True, exist_ok=True)
     return str(p)
 

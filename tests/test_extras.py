@@ -59,3 +59,10 @@ def test_auto_index_warns_when_sqlite_vec_is_unavailable(monkeypatch):
     with pytest.warns(UserWarning, match="sqlite-vec"):
         idx = vectorindex.make_index(db, 8, ":memory:", "auto", n_nodes=vectorindex.AUTO_SWITCH)
     assert idx.name == "matrix"
+
+
+def test_db_path_rejects_an_unexpanded_variable(monkeypatch):
+    from jevmem.service import db_path
+    monkeypatch.setenv("JEVMEM_DB", "${HOME}/.jevmem/x.db")
+    with pytest.raises(ValueError, match="USERPROFILE"):
+        db_path()
