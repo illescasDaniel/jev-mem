@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Windows and Cursor support.** Cross-platform `.mcp.json` (no bash; `scripts/launch_jev_mcp.py` loads
+  `~/.jevmem/.env`), Cursor project config at `.cursor/mcp.json` with `envFile`, Cursor skill at
+  `.cursor/skills/jev-memory/`, `.env.example`, and Windows/Cursor setup in the README and installation guide.
+  Claude Code hooks no longer use a `VAR=value` prefix so they run under Windows shells.
+
 ## 0.3.0 - 2026-10-05
 
 - **Local and third-party decision models.** `JEVMEM_BASE_URL` points jevmem at any server that speaks Jev's

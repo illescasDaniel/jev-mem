@@ -17,8 +17,8 @@ jevmem takes the approach of the [**Jev-Mem paper**](https://arxiv.org/abs/2609.
   safe? what kind is it? does it contradict an older one? which notes matter for this question? is that enough yet?
 - **System Two** (slow, smart): your agent (Claude) writes the notes, synthesises patterns and answers.
 
-jevmem is the memory layer built on that idea: an MCP server, Claude Code hooks and skill, a CLI and a Python library on
-top of one SQLite file. Install it from PyPI: [pypi.org/project/jevmem](https://pypi.org/project/jevmem/).
+jevmem is the memory layer built on that idea: an MCP server, Claude Code and Cursor configs, hooks and skill, a CLI and
+a Python library on top of one SQLite file. Install it from PyPI: [pypi.org/project/jevmem](https://pypi.org/project/jevmem/).
 
 ![architecture](https://raw.githubusercontent.com/illescasDaniel/jev-mem/main/docs/img/architecture.svg)
 
@@ -98,16 +98,48 @@ when to stop) for using the same cheap typed decisions outside memory. See
 
 ## Quickstart
 
-You need Python 3.12+, [uv](https://docs.astral.sh/uv/), Claude Code, and a decision model: either a TypeSafe API key
-for hosted Jev (currently waitlisted, what the [results](#results) were measured with) or a
+You need Python 3.12+, [uv](https://docs.astral.sh/uv/), an MCP host ([Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+or [Cursor](https://cursor.com/docs/mcp)), and a decision model: either a TypeSafe API key for hosted Jev (currently
+waitlisted, what the [results](#results) were measured with) or a
 [local or third-party model](#using-a-local-or-third-party-model), which needs no key.
 
+Put the key in `~/.jevmem/.env` (created once; read automatically by the CLI, MCP server and hooks):
+
 ```bash
-mkdir -p ~/.jevmem && echo 'TYPESAFE_API_KEY=...' > ~/.jevmem/.env     # read automatically
+# macOS / Linux
+mkdir -p ~/.jevmem && echo 'TYPESAFE_API_KEY=...' > ~/.jevmem/.env
+
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.jevmem" | Out-Null
+Set-Content "$env:USERPROFILE\.jevmem\.env" "TYPESAFE_API_KEY=..."
+```
+
+### Claude Code
+```bash
 claude mcp add --scope user jevmem -- uvx --from jevmem jevmem-mcp
 ```
 No clone needed: `uvx` fetches [jevmem from PyPI](https://pypi.org/project/jevmem/). Notes go to the `global` scope
 unless you add `-e JEVMEM_SCOPE=project:my-project`.
+
+### Cursor
+Add a user-wide server in `%USERPROFILE%\.cursor\mcp.json` (Windows) or `~/.cursor/mcp.json` (macOS/Linux), or a
+project file at `.cursor/mcp.json`. Cursor loads secrets via `envFile` (no bash required):
+
+```json
+{
+  "mcpServers": {
+    "jevmem": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "jevmem", "jevmem-mcp"],
+      "env": { "JEVMEM_SCOPE": "project:my-project" },
+      "envFile": "${userHome}/.jevmem/.env"
+    }
+  }
+}
+```
+This repo already ships `.cursor/mcp.json` for working on jevmem itself. Reload MCP in Cursor after saving
+(Customize → MCP), then confirm `memory_write` / `memory_recall` appear under Available Tools.
 
 The default install is the one the [results](#results) were measured with: it includes a small local embedding model
 (fastembed, ONNX, no API) and the sqlite-vec index. The model (about 70 MB) downloads on first use, so run
@@ -115,12 +147,15 @@ The default install is the one the [results](#results) were measured with: it in
 `[pgvector]`, `[all]`) and the lighter `JEVMEM_EMBEDDER=hash` opt-out are in the
 [installation guide](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#2-install-the-python-package).
 
-Then ask Claude to remember something ("remember that we deploy through ops/deploy.sh, never by hand") and, in a new
+Then ask the agent to remember something ("remember that we deploy through ops/deploy.sh, never by hand") and, in a new
 session, ask how to deploy. For the full experience:
 - copy the [`jev-memory` skill](https://github.com/illescasDaniel/jev-mem/blob/main/.claude/skills/jev-memory/SKILL.md)
-  to `~/.claude/skills/` so the agent knows when and how to write;
-- add the two hooks for automatic injection ([snippet](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#5-skill-and-hooks));
+  to `~/.claude/skills/` (Claude Code) or use this repo's `.cursor/skills/jev-memory/` (Cursor);
+- add the two Claude Code hooks for automatic injection ([snippet](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#5-skill-and-hooks));
 - seed it from what you already have: `uvx jevmem import-claude-memory` or `uvx jevmem import-markdown AGENTS.md`.
+
+Windows notes (paths, PowerShell, Cursor `envFile`, no-bash MCP launch): see
+[installation § Windows and Cursor](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#windows-and-cursor).
 
 ### Using a local or third-party model
 jevmem only needs a server that speaks Jev's `/v1/systemone` API, so any compatible model works in place of hosted Jev, and
@@ -197,7 +232,7 @@ indications, not benchmarks; methodology, datasets and caveats are in [docs/eval
 
 | | |
 |---|---|
-| [Installation and configuration](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md) | setup, env vars, tools, CLI, hooks, skill, what goes where, indexes |
+| [Installation and configuration](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md) | setup, Windows/Cursor, env vars, tools, CLI, hooks, skill, indexes |
 | [Architecture](https://github.com/illescasDaniel/jev-mem/blob/main/docs/architecture.md) | write, recall, hooks, consolidation, scopes, Python API, code layout |
 | [Concepts](https://github.com/illescasDaniel/jev-mem/blob/main/docs/concepts.md) | Jev, System One/Two, embeddings, vector search and databases, explained from scratch |
 | [Evaluation](https://github.com/illescasDaniel/jev-mem/blob/main/docs/evaluation.md) | methodology, datasets, every number above, caveats, 1M-note benchmark |
@@ -206,8 +241,9 @@ indications, not benchmarks; methodology, datasets and caveats are in [docs/eval
 
 ## Status
 
-Beta (v0.1.0). Core library, MCP server and CLI, skill and hooks, consolidation, an evaluation harness and pluggable
-vector indexes are in and tested (`uv run pytest`; CI runs Linux, macOS and Windows on Python 3.12 and 3.13). Expect rough edges: the
+Beta (v0.1.0). Core library, MCP server and CLI, Claude Code / Cursor configs, skill and hooks, consolidation, an
+evaluation harness and pluggable vector indexes are in and tested (`uv run pytest`; CI runs Linux, macOS and Windows on
+Python 3.12 and 3.13). Expect rough edges: the
 tuning data is small and mostly from one project, and Jev itself is a waitlisted hosted service. Issues and
 experience reports are very welcome, especially from projects that are not ours.
 

@@ -1,11 +1,11 @@
 [project]
 name = "jevmem"
 version = "0.3.0"
-description = "System-One agent memory (Jev-Mem) for Claude Code and custom agents"
+description = "System-One agent memory (Jev-Mem) for Claude Code, Cursor and custom agents"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-keywords = ["agent", "memory", "mcp", "claude-code", "jev", "llm", "rag"]
+keywords = ["agent", "memory", "mcp", "claude-code", "cursor", "jev", "llm", "rag"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",

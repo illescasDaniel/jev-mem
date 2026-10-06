@@ -1,14 +1,10 @@
 {
   "mcpServers": {
     "jev": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--project",
-        ".",
-        "python",
-        "scripts/launch_jev_mcp.py"
-      ]
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@jkudish/jev-mcp"],
+      "envFile": "${userHome}/.jevmem/.env"
     },
     "jevmem": {
       "type": "stdio",
@@ -16,12 +12,13 @@
       "args": [
         "run",
         "--project",
-        ".",
+        "${workspaceFolder}",
         "jevmem-mcp"
       ],
       "env": {
         "JEVMEM_SCOPE": "project:jev-mem"
-      }
+      },
+      "envFile": "${userHome}/.jevmem/.env"
     }
   }
 }
