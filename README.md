@@ -241,7 +241,7 @@ indications, not benchmarks; methodology, datasets and caveats are in [docs/eval
 
 ## Status
 
-Beta (v0.1.0). Core library, MCP server and CLI, Claude Code / Cursor configs, skill and hooks, consolidation, an
+Beta (v0.3.0). Core library, MCP server and CLI, Claude Code / Cursor configs, skill and hooks, consolidation, an
 evaluation harness and pluggable vector indexes are in and tested (`uv run pytest`; CI runs Linux, macOS and Windows on
 Python 3.12 and 3.13). Expect rough edges: the
 tuning data is small and mostly from one project, and Jev itself is a waitlisted hosted service. Issues and

@@ -5,7 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --project . jevmem hook session-start",
+            "command": "uv",
+            "args": ["run", "--project", "${CLAUDE_PROJECT_DIR}", "jevmem", "hook", "session-start"],
             "timeout": 15
           }
         ]
@@ -16,7 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --project . jevmem hook user-prompt",
+            "command": "uv",
+            "args": ["run", "--project", "${CLAUDE_PROJECT_DIR}", "jevmem", "hook", "user-prompt"],
             "timeout": 20
           }
         ]

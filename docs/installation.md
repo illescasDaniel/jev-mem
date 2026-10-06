@@ -200,8 +200,9 @@ This repo ships both for itself:
     "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "uvx jevmem hook user-prompt", "timeout": 20}]}]
   }}
   ```
-  Commands are plain `uv` / `uvx` (no `VAR=value` prefix) so they work on Windows cmd and PowerShell; the key still
-  loads from `~/.jevmem/.env`.
+  This repo's hooks use exec form (`command` plus `args`, with `${CLAUDE_PROJECT_DIR}`): Claude Code substitutes the path
+  itself and spawns `uv` without a shell, so the same config works under bash and PowerShell regardless of the working
+  directory. The key still loads from `~/.jevmem/.env`.
 - Seed from existing Claude Code memory files: `uv run jevmem import-claude-memory`, or from rule files such as
   `AGENTS.md`/`CLAUDE.md` with `uv run jevmem import-markdown AGENTS.md --scope project:<name>` (one note per bullet
   or paragraph; for long decision logs it is better to have your agent write atomic, dated notes).

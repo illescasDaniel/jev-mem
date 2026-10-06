@@ -5,7 +5,7 @@
 - **Windows and Cursor support.** Cross-platform `.mcp.json` (no bash; `scripts/launch_jev_mcp.py` loads
   `~/.jevmem/.env`), Cursor project config at `.cursor/mcp.json` with `envFile`, Cursor skill at
   `.cursor/skills/jev-memory/`, `.env.example`, and Windows/Cursor setup in the README and installation guide.
-  Claude Code hooks no longer use a `VAR=value` prefix so they run under Windows shells.
+  Claude Code hooks use exec form (`command` + `args`, `${CLAUDE_PROJECT_DIR}`) so they run the same under bash and PowerShell.
 
 ## 0.3.0 - 2026-10-05
 
