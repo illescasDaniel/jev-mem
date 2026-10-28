@@ -119,6 +119,10 @@ No clone needed: `uvx` fetches [jevmem from PyPI](https://pypi.org/project/jevme
 (`project:<repository name>`, found from the folder the agent works in) unless the agent says `global` (for personal
 preferences that apply everywhere) or you set `-e JEVMEM_SCOPE=...`. Recall searches the project plus `global`.
 
+> **Python 3.15 or newer?** `uvx` may silently install an old release (0.1.0, which ignores `~/.jevmem/config.jsonc`)
+> because `fastembed` needs `onnxruntime`, which has no wheels for 3.15 yet. Pin a supported Python:
+> `uvx --python 3.14 --from jevmem jevmem-mcp`. See [installation](https://github.com/illescasDaniel/jev-mem/blob/main/docs/installation.md#2-install-the-python-package).
+
 ### Cursor
 Add a user-wide server in `%USERPROFILE%\.cursor\mcp.json` (Windows) or `~/.cursor/mcp.json` (macOS/Linux), or a
 project file at `.cursor/mcp.json`.:

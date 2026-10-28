@@ -44,7 +44,12 @@ For example `uvx --from 'jevmem[all]' jevmem-mcp`, `pip install 'jevmem[all]'`, 
 Installing a backend does not turn it on: set `JEVMEM_INDEX` for the MCP server and the hooks. If you select a backend
 that is not installed, jevmem tells you which extra to add.
 
-Two notes on Python builds:
+Three notes on Python builds:
+- **Python 3.15+: `uvx` installs jevmem 0.1.0.** `fastembed` needs `onnxruntime`, which has no wheels for CPython 3.15
+  yet, so uv's resolver falls back to the last release it can install (0.1.0: no settings file, no hooks). Check with
+  `uvx --refresh --from jevmem python -c "import importlib.metadata as m; print(m.version('jevmem'))"`. Fix it by pinning
+  a supported Python: `uvx --python 3.14 --from jevmem jevmem-mcp` (in an MCP config: `"args": ["--python", "3.14",
+  "--from", "jevmem", "jevmem-mcp"]`). Remove the pin once `onnxruntime` ships 3.15 wheels.
 - **sqlite-vec needs a Python whose `sqlite3` can load extensions.** `uvx` and `uv tool install` use uv's managed
   Python, which can, and so does Homebrew's. If yours cannot, `auto` prints a warning and stays on the in-RAM index
   (fine below ~100k notes).
