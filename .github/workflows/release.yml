@@ -1,9 +1,13 @@
 name: Release
-# Runs only when a tag like v0.1.0 is pushed. Publishing needs a PyPI "trusted publisher" configured for this repo
-# (pypi.org -> project -> Publishing) and a GitHub environment named "pypi".
+# Manual on purpose: run it (Actions -> Release -> Run workflow, with the tag, e.g. v1.0.0) after CI is
+# green on main, the tag is pushed, the PyPI trusted publisher exists for this repo and the GitHub
+# environment "pypi" is set up.
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, e.g. v1.0.0
+        required: true
 
 jobs:
   publish:
@@ -11,14 +15,25 @@ jobs:
     environment: pypi
     permissions:
       id-token: write
-      contents: read
+      contents: write   # to create the GitHub release
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: The tag must match the package version
+        env:
+          TAG: ${{ inputs.tag }}
         run: |
           v=$(python3 -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          test "v$v" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != version $v"; exit 1; }
-      - run: uv run --extra all pytest -q -rs     # plain `uv run` would drop the index extra
+          test "v$v" = "$TAG" || { echo "tag $TAG != version $v"; exit 1; }
+      - run: uv run --extra all pytest -q -rs
       - run: uv build
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+      - name: Create the GitHub release with the CHANGELOG notes and the built files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          python3 scripts/release_notes.py "$TAG" > release-notes.md
+          gh release create "$TAG" dist/* --title "$TAG" --notes-file release-notes.md --verify-tag
