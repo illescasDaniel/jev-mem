@@ -109,6 +109,56 @@ def test_import_markdown(tmp_path):
     assert all("Short." != c for c in contents)
 
 
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_import_markdown_ignores_fenced_code_and_preserves_heading(tmp_path, fence):
+    from types import SimpleNamespace
+
+    class RecordingService:
+        def __init__(self):
+            self.notes = []
+
+        def write(self, text, **kwargs):
+            self.notes.append((text, kwargs))
+            return SimpleNamespace(rejected=False), None
+
+    f = tmp_path / "rules.md"
+    f.write_text(
+        "# Rules\nProse before the example is long enough to import.\n"
+        f"  {fence}python\n# Misleading heading\n- Code that must never be imported as a note.\n"
+        f"   {fence}  \nProse after the example is long enough to import.\n"
+        "# Next\nA separate section has enough text to be imported.\n"
+    )
+    svc = RecordingService()
+    assert import_markdown(svc, [f], "project:demo") == 3
+    assert [text for text, _ in svc.notes] == [
+        "Rules: Prose before the example is long enough to import.",
+        "Rules: Prose after the example is long enough to import.",
+        "Next: A separate section has enough text to be imported.",
+    ]
+    assert all(kwargs == {"scope": "project:demo", "source": str(f)} for _, kwargs in svc.notes)
+
+
+def test_import_markdown_fence_closing_rules_and_unclosed_fence(tmp_path):
+    from types import SimpleNamespace
+
+    notes = []
+
+    class RecordingService:
+        def write(self, text, **kwargs):
+            notes.append(text)
+            return SimpleNamespace(rejected=False), None
+
+    f = tmp_path / "rules.md"
+    f.write_text(
+        "# Rules\n````\n```\n~~~~\n```` trailing text\n    ````\n"
+        "# Still code\nThis line should remain inside the code block.\n"
+        "`````\nText after the longer closing fence is imported.\n"
+        "~~~\n# Unclosed heading\nThis remaining text is not imported either.\n"
+    )
+    assert import_markdown(RecordingService(), [f], "project:demo") == 1
+    assert notes == ["Rules: Text after the longer closing fence is imported."]
+
+
 def _repo(tmp_path, name="demo"):
     import subprocess
     d = tmp_path / name
