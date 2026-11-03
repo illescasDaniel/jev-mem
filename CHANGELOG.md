@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 - 2026-11-03
+
+- Skip fenced code blocks when importing Markdown, so code comments do not become headings or mislabel later notes.
+
 ## 0.4.0 - 2026-10-06
 
 - **The MCP server defaults to a per-project scope.** With no `scope` argument and no `JEVMEM_SCOPE`, writes go to
