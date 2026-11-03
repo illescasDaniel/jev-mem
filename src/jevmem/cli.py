@@ -43,7 +43,18 @@ def import_markdown(svc: Service, files: list[Path], scope: str, max_chars: int 
     n = 0
     for f in files:
         heading, blocks, cur = "", [], []
+        fence = None
         for line in f.read_text().splitlines():
+            marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+            if fence is not None:
+                if (marker and marker.group(1)[0] == fence[0]
+                        and len(marker.group(1)) >= len(fence) and not marker.group(2).strip()):
+                    fence = None
+                continue
+            if marker:
+                blocks.append((heading, cur)); cur = []
+                fence = marker.group(1)
+                continue
             if line.startswith("#"):
                 blocks.append((heading, cur)); cur = []; heading = line.lstrip("# ").strip()
             elif re.match(r"\s*([-*]|\d+\.)\s", line):
