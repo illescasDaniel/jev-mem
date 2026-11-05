@@ -218,8 +218,8 @@ This repo ships both for itself:
 - Using the PyPI package instead of a clone? Put this in `~/.claude/settings.json` (or the project's `.claude/settings.json`):
   ```json
   {"hooks": {
-    "SessionStart": [{"hooks": [{"type": "command", "command": "uvx jevmem hook session-start", "timeout": 15}]}],
-    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "uvx jevmem hook user-prompt", "timeout": 20}]}]
+    "SessionStart": [{"hooks": [{"type": "command", "command": "uvx --python 3.14 jevmem hook session-start", "timeout": 15}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "uvx --python 3.14 jevmem hook user-prompt", "timeout": 20}]}]
   }}
   ```
   This repo's hooks use exec form (`command` plus `args`, with `${CLAUDE_PROJECT_DIR}`): Claude Code substitutes the path

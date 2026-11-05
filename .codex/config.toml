@@ -1,0 +1,18 @@
+[mcp_servers.jev]
+command = "uv"
+args = [
+    "run",
+    "--project",
+    ".",
+    "python",
+    "scripts/launch_jev_mcp.py",
+]
+
+[mcp_servers.jevmem]
+command = "uv"
+args = [
+    "run",
+    "--project",
+    ".",
+    "jevmem-mcp",
+]
